@@ -1,0 +1,84 @@
+#!/bin/bash
+
+
+unset bases
+declare -a bases
+
+function seenbase {
+	local i
+	for i in "${bases[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+
+DEFINITION_ONLY=y source "${BASH_SOURCE[0]%/*}"/20-simple-abstractions
+
+
+function append-paths-suite {
+
+local -a envvars
+local envvar
+local cmdname
+
+while [ "x$1" != "x--" ]; do
+	envvars[${#envvars[@]}]="$1"
+	shift
+done
+shift
+
+cmdname="$1"
+shift
+
+ORDERING=before simple-abstraction-suite "${envvars[@]}" -- "$cmdname" "$@"
+ORDERING=before simple-abstraction-suite "${envvars[@]}" -- "$cmdname" '-force "no-append-paths"' "$@"
+ORDERING=after simple-abstraction-suite "${envvars[@]}" -- "$cmdname" '-force "append-paths"' "$@"
+
+}
+
+append-paths-suite PATH -- bin-dir
+
+append-paths-suite MANPATH -- man-dir
+append-paths-suite INFOPATH -- info-dir
+append-paths-suite LD_PRELOAD -- preload-lib
+
+# these commands get partial coverage from these tests,
+# but they need other tests in other files to get full coverage.
+append-paths-suite PATH -- wrapper-dir
+append-paths-suite PKG_CONFIG_PATH -- pkgconfig-dir
+append-paths-suite PKG_CONFIG_PATH -- pkg-config-dir
+
+
+append-paths-suite C_INCLUDE_PATH -- include-dir -language c
+append-paths-suite CPLUS_INCLUDE_PATH -- include-dir -language c++
+append-paths-suite CPATH -- include-dir -language cpp
+append-paths-suite CPATH -- include-dir -language c++cpp
+append-paths-suite FPATH -- include-dir -language f
+append-paths-suite FPATH -- include-dir -language f77
+append-paths-suite FPATH -- include-dir -language f90
+append-paths-suite LDPATH -- include-dir -language ld
+append-paths-suite ARPATH -- include-dir -language ar
+append-paths-suite ASPATH -- include-dir -language as
+append-paths-suite PYTHONPATH -- include-dir -language py
+append-paths-suite PERLLIB -- include-dir -language pl
+append-paths-suite PERL5LIB -- include-dir -language pl5
+
+append-paths-suite PYTHONPATH -- python-lib-dir
+append-paths-suite PERLLIB -- perl-lib-dir
+append-paths-suite PERL5LIB -- perl5-lib-dir
+
+append-paths-suite C_INCLUDE_PATH CPLUS_INCLUDE_PATH CPATH -- include-dir -language c,c++
+
+
+#append-paths-suite LIBRARY_PATH -- lib-dir '-force "library_path no-ld_run_path no-ld_library_path"'
+#append-paths-suite LD_RUN_PATH -- lib-dir '-force "ld_run_path,no-library_path,no-ld_library_path"'
+#append-paths-suite LD_LIBRARY_PATH -- lib-dir '-force ld_library_path,no-library_path,no-ld_run_path'
+append-paths-suite LIBRARY_PATH -- lib-dir '-defaults "library_path no-ld_run_path no-ld_library_path"'
+append-paths-suite LD_RUN_PATH -- lib-dir '-defaults "ld_run_path,no-library_path,no-ld_library_path"'
+append-paths-suite LD_LIBRARY_PATH -- lib-dir '-defaults ld_library_path,no-library_path,no-ld_run_path'
+
+
+

@@ -1,0 +1,658 @@
+#!/bin/bash
+
+
+runtest -name "implicit-self-1a" -commands "
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "implicit-self-1b" -extraloadedmodules "package/otherversion" -commands "
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "implicit-self-1c" -extraloadedmodules "otherpackage/version" -commands "
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+runtest -name "explicit-self-1a" -commands "
+conflict package
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-self-1b" -extraloadedmodules "package/otherversion" -commands "
+conflict package
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "explicit-self-1c" -extraloadedmodules "package/version" -commands "
+conflict package
+" -results '
+module-neither-loaded-nor-not-loaded
+no-change-at-all
+'
+
+runtest -name "explicit-self-1d" -extraloadedmodules "otherpackage/version" -commands "
+conflict package
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-self-2a" -commands "
+conflict package/version
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-self-2b" -extraloadedmodules "package/otherversion" -commands "
+conflict package/version
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-self-2c" -extraloadedmodules "package/version" -commands "
+conflict package/version
+" -results '
+module-neither-loaded-nor-not-loaded
+no-change-at-all
+'
+
+runtest -name "explicit-self-2d" -extraloadedmodules "otherpackage/version" -commands "
+conflict package/version
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+runtest -name "implicit-inhibit-self-1a" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "implicit-inhibit-self-1b" -extraloadedmodules "package/otherversion" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "implicit-inhibit-self-1c" -extraloadedmodules "package/version" -commands "
+conflict otherpackage
+" -results '
+module-neither-loaded-nor-not-loaded
+no-change-at-all
+'
+
+runtest -name "implicit-inhibit-self-1d" -extraloadedmodules "otherpackage/version" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "implicit-inhibit-self-1e" -extraloadedmodules "otherpackage/version" -commands "
+conflict anotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+runtest -name "explicit-inhibit-self-1a" -commands "
+inhibit-self-conflict
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-inhibit-self-1b" -extraloadedmodules "package/otherversion" -commands "
+inhibit-self-conflict
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-inhibit-self-1c" -extraloadedmodules "package/version" -commands "
+inhibit-self-conflict
+" -results '
+module-neither-loaded-nor-not-loaded
+no-change-at-all
+'
+
+runtest -name "explicit-inhibit-self-1d" -extraloadedmodules "otherpackage/version" -commands "
+inhibit-self-conflict
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-inhibit-self-1e" -extraloadedmodules "otherpackage/version" -commands "
+inhibit-self-conflict
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+runtest -name "explicit-inhibit-self-2a" -commands "
+inhibit-self-conflict
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-inhibit-self-2b" -extraloadedmodules "package/otherversion" -commands "
+inhibit-self-conflict
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "explicit-inhibit-self-2c" -extraloadedmodules "package/version" -commands "
+inhibit-self-conflict
+conflict otherpackage
+" -results '
+module-neither-loaded-nor-not-loaded
+no-change-at-all
+'
+
+runtest -name "explicit-inhibit-self-2d" -extraloadedmodules "otherpackage/version" -commands "
+inhibit-self-conflict
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "explicit-inhibit-self-2e" -extraloadedmodules "otherpackage/version" -commands "
+inhibit-self-conflict
+conflict anotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+
+runtest -name "empty-1" -commands "
+conflict
+" -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+runtest -name "single-base-1a" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-base-1b" -extraloadedmodules "otherpackage" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-base-1c" -extraloadedmodules "otherpackage/otherversion" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-base-1d" -extraloadedmodules "otherpackage/otherversion/revision" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-base-1e" -extraloadedmodules "yetanotherpackage" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-base-1f" -extraloadedmodules "yetanotherpackage/otherversion" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+# same as 1a
+#runtest -name "single-base-2a" -commands "
+#conflict otherpackage
+#" -results '
+#expect-audit-success
+#expect-load-success
+#no-change
+#'
+
+runtest -name "single-base-2b" -extraloadedmodules "foo/bar otherpackage fred/barney" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-base-2c" -extraloadedmodules "foo/bar otherpackage/otherversion fred/barney" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-base-2d" -extraloadedmodules "foo/bar otherpackage/otherversion/revision fred/barney" -commands "
+conflict otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-base-2e" -extraloadedmodules "foo/bar yetanotherpackage fred/barney" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-base-2f" -extraloadedmodules "foo/bar yetanotherpackage/otherversion fred/barney" -commands "
+conflict otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+
+runtest -name "single-full-1a" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-1b" -extraloadedmodules "otherpackage" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-1c" -extraloadedmodules "otherpackage/otherversion" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-full-1d" -extraloadedmodules "otherpackage/otherversion" -commands "
+conflict otherpackage/yetanotherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-1e" -extraloadedmodules "otherpackage/otherversion/revision" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-full-1f" -extraloadedmodules "yetanotherpackage" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-1g" -extraloadedmodules "yetanotherpackage/otherversion" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+# same as 1a
+#runtest -name "single-full-2a" -commands "
+#conflict otherpackage/otherversion
+#" -results '
+#expect-audit-success
+#expect-load-success
+#no-change
+#'
+
+runtest -name "single-full-2b" -extraloadedmodules "foo/bar otherpackage fred/barney" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-2c" -extraloadedmodules "foo/bar otherpackage/otherversion fred/barney" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-full-2d" -extraloadedmodules "foo/bar otherpackage/otherversion fred/barney" -commands "
+conflict otherpackage/yetanotherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-2e" -extraloadedmodules "foo/bar otherpackage/otherversion/revision fred/barney" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "single-full-2f" -extraloadedmodules "foo/bar yetanotherpackage fred/barney" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "single-full-2g" -extraloadedmodules "foo/bar yetanotherpackage/otherversion fred/barney" -commands "
+conflict otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+
+
+# multiple commands
+
+runtest -name "multi-base-1a" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "multi-base-1b" -extraloadedmodules "goodpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "multi-base-1c" -extraloadedmodules "otherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1d" -extraloadedmodules "someotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1e" -extraloadedmodules "yetanotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1f" -extraloadedmodules "otherpackage someotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1g" -extraloadedmodules "otherpackage yetanotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1h" -extraloadedmodules "someotherpackage yetanotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1i" -extraloadedmodules "otherpackage someotherpackage yetanotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1j" -extraloadedmodules "goodpackage otherpackage someotherpackage yetanotherpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multi-base-1k" -extraloadedmodules "goodpackage greatpackage fantasticpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "multi-base-1l" -extraloadedmodules "goodpackage someotherpackage greatpackage fantasticpackage" -commands "
+conflict otherpackage
+conflict someotherpackage
+conflict yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+
+# multiple args on multiple commands
+
+
+runtest -name "multimulti-base-1a" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "multimulti-base-1b" -extraloadedmodules "goodpackage" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "multimulti-base-1c" -extraloadedmodules "otherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1d" -extraloadedmodules "someotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1e" -extraloadedmodules "yetanotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1f" -extraloadedmodules "otherpackage2 someotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1g" -extraloadedmodules "otherpackage2 yetanotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1h" -extraloadedmodules "someotherpackage2 yetanotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1i" -extraloadedmodules "otherpackage2 someotherpackage2 yetanotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1j" -extraloadedmodules "goodpackage otherpackage2 someotherpackage2 yetanotherpackage2" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "multimulti-base-1k" -extraloadedmodules "goodpackage greatpackage fantasticpackage" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "multimulti-base-1l" -extraloadedmodules "goodpackage someotherpackage2 greatpackage fantasticpackage" -commands "
+conflict otherpackage1 otherpackage2 otherpackage3
+conflict someotherpackage1 someotherpackage2 someotherpackage3
+conflict yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+
+
+

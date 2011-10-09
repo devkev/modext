@@ -1,0 +1,126 @@
+#!/bin/bash
+
+
+runtest -name "0" -expectfail -commands '
+' -results '
+prior-test
+'
+
+runtest -name "1" -commands '
+' -results '
+'
+
+#runtest -name "1b" -expectfail -commands '
+#' -results '
+#'
+
+runtest -name "2" -expectfail -commands '
+' -results '
+force-fail
+'
+
+runtest -name "2b" -expectfail -commands '
+' -results '
+prior-test
+'
+
+runtest -name "3" -commands '
+' -results '
+no-change
+'
+
+runtest -name "3b" -commands '
+' -results '
+prior-test
+'
+
+runtest -name "4" -commands '
+setenv TEST_VAR foobar
+' -results '
+no-change-except TEST_VAR
+'
+
+runtest -name "5" -expectfail -commands '
+setenv TEST_VAR foobar
+' -results '
+no-change
+'
+
+runtest -name "6" -commands '
+setenv TEST_VAR foobar
+setenv TEST_VAR_2 foobar2
+setenv TEST_VAR_3 foobar3
+' -results '
+no-change-except TEST_VAR TEST_VAR_2 TEST_VAR_3
+'
+
+runtest -name "7" -expectfail -commands '
+setenv TEST_VAR foobar
+setenv TEST_VAR_2 foobar2
+setenv TEST_VAR_3 foobar3
+' -results '
+no-change-except TEST_VAR_2
+'
+
+runtest -name "8" -expectfail -commands '
+setenv TEST_VAR foobar
+setenv TEST_VAR_2 foobar2
+setenv TEST_VAR_3 foobar3
+' -results '
+no-change
+'
+
+
+runtest -name "9" -commands '
+' -results '
+expect-audit-succeed
+'
+
+runtest -name "10" -commands '
+' -results '
+expect-load-succeed
+'
+
+runtest -name "11" -commands '
+' -results '
+expect-audit-succeed
+expect-load-succeed
+'
+
+runtest -name "12" -commands '
+' -results '
+previous-test
+'
+
+runtest -name "13" -commands '
+' -results '
+previous-test 9
+previous-test 10
+'
+
+runtest -name "14" -commands '
+' -results '
+previous-test
+previous-test 9
+previous-test 10
+'
+
+runtest -name "15" -expectfail -commands '
+' -results '
+previous-test no-such-previous-test
+'
+
+runtest -name "16" -commands '
+foobar junk
+' -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+runtest -name "17" -expectfail -commands '
+' -results '
+no-change-at-all
+'
+
+

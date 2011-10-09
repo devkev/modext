@@ -1,0 +1,282 @@
+#!/bin/bash
+
+
+unset bases
+declare -a bases
+
+function seenbase {
+	local i
+	for i in "${bases[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+
+function basedir-abstraction-suite {
+
+local -a envvars
+local envvar
+local cmdname
+
+local namebase
+local realnamebase
+local i
+
+while [ "x$1" != "x--" -a $# -gt 0 ]; do
+	envvars[${#envvars[@]}]="$1"
+	shift
+done
+shift
+
+if [ ! $# -gt 0 ]; then
+	echo "Warning: Ignoring dodgy call to simple-abstraction-suite:"
+	echo "Warning: no command/args, only envvars (${#envvars[@]})"
+	echo "Warning: Maybe -- was forgotten?"
+	return 1
+fi
+
+cmdname="$1"
+shift
+
+realnamebase="$cmdname"
+for envvar in "${envvars[@]}"; do
+	realnamebase="$realnamebase-$envvar"
+done
+namebase="$realnamebase"
+
+i=1
+while seenbase "$namebase"; do
+	i="$(($i + 1))"
+	namebase="$realnamebase-$i"
+done
+bases[${#bases[@]}]="$namebase"
+
+
+# FIXME: split off all this basedir related stuff into a separate suite
+
+
+# basedir-relative (via $cmdname)
+
+runtest -name "$namebase-basedir-1" -commands "
+$cmdname $*  -basedir /somewhere-else bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /somewhere-else/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-2" -commands "
+$cmdname $*  -basedir /somewhere/really/strange bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /somewhere/really/strange/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-3" -commands "
+$cmdname $*  -basedir /somewhere-else /foo/bar/bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /foo/bar/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-4" -commands "
+$cmdname $*  -basedir-root /applications bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /applications/package/version/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-5" -commands "
+$cmdname $*  -basedir-root applications bin
+" -results "
+previous-test
+"
+
+runtest -name "$namebase-basedir-6" -commands "
+$cmdname $*  -basedir-package pkg bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /apps/pkg/version/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-7" -commands "
+$cmdname $*  -basedir-version vers bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /apps/package/vers/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-8" -commands "
+$cmdname $*  -basedir-package pkg -basedir-version vers bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /apps/pkg/vers/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-9" -commands "
+$cmdname $*  -basedir-root /applications -basedir-package pkg -basedir-version vers bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /applications/pkg/vers/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-10" -commands "
+$cmdname $*  -basedir-root applications -basedir-package pkg -basedir-version vers bin
+" -results "
+previous-test
+"
+
+runtest -name "$namebase-basedir-11" -commands "
+$cmdname $*  -basedir-root /applications -basedir-package pkg -basedir-version vers /override/bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /override/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-12" -commands "
+$cmdname $*  -basedir-root /applications -basedir-package pkg -basedir-version vers -basedir /elsewhere /override/bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /override/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-13" -commands "
+$cmdname $*  -basedir-root /applications -basedir-package pkg -basedir-version vers -basedir /elsewhere bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /elsewhere/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-14" -commands "
+$cmdname $*  -basedir-root /applications -basedir-package pkg -basedir-version vers -basedir elsewhere /override/bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /override/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-15" -commands "
+$cmdname $*  -basedir-root /applications -basedir-package pkg -basedir-version vers -basedir elsewhere bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /applications/pkg/vers/elsewhere/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-16" -commands "
+$cmdname $*  -basedir elsewhere bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /apps/package/version/elsewhere/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-17" -commands "
+$cmdname $*  -basedir-version none bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /apps/package/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-17b" -commands "
+$cmdname $*  -basedir-version no bin
+" -results "
+previous-test
+"
+
+runtest -name "$namebase-basedir-18" -commands "
+$cmdname $*  -basedir-version none -basedir elsewhere bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /apps/package/elsewhere/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-18b" -commands "
+$cmdname $*  -basedir-version no -basedir elsewhere bin
+" -results "
+previous-test
+"
+
+runtest -name "$namebase-basedir-19" -commands "
+$cmdname $*  -basedir-version none -basedir /override bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "before-previous-paths $envvar /override/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-basedir-19b" -commands "
+$cmdname $*  -basedir-version no -basedir /override bin
+" -results "
+previous-test
+"
+
+}
+
+
+if [ "x$DEFINITION_ONLY" = "xy" ]; then
+	return
+fi
+
+
+basedir-abstraction-suite PATH -- bin-dir
+basedir-abstraction-suite MANPATH -- man-dir
+basedir-abstraction-suite INFOPATH -- info-dir
+basedir-abstraction-suite LD_PRELOAD -- preload-lib
+
+basedir-abstraction-suite PATH -- wrapper-dir
+basedir-abstraction-suite PKG_CONFIG_PATH -- pkgconfig-dir
+basedir-abstraction-suite PKG_CONFIG_PATH -- pkg-config-dir
+
+basedir-abstraction-suite PYTHONPATH -- python-lib-dir
+basedir-abstraction-suite PERLLIB -- perl-lib-dir
+basedir-abstraction-suite PERL5LIB -- perl5-lib-dir
+
+basedir-abstraction-suite C_INCLUDE_PATH -- include-dir -language c
+basedir-abstraction-suite CPLUS_INCLUDE_PATH -- include-dir -language c++
+basedir-abstraction-suite CPATH -- include-dir -language cpp
+basedir-abstraction-suite CPATH -- include-dir -language c++cpp
+basedir-abstraction-suite FPATH -- include-dir -language f
+basedir-abstraction-suite FPATH -- include-dir -language f77
+basedir-abstraction-suite FPATH -- include-dir -language f90
+basedir-abstraction-suite LDPATH -- include-dir -language ld
+basedir-abstraction-suite ARPATH -- include-dir -language ar
+basedir-abstraction-suite ASPATH -- include-dir -language as
+basedir-abstraction-suite PYTHONPATH -- include-dir -language py
+basedir-abstraction-suite PERLLIB -- include-dir -language pl
+basedir-abstraction-suite PERL5LIB -- include-dir -language pl5
+
+basedir-abstraction-suite LIBRARY_PATH -- lib-dir '-force "library_path no-ld_run_path no-ld_library_path"'
+

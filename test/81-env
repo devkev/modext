@@ -1,0 +1,240 @@
+#!/bin/bash
+
+
+INPUT="foobar"
+runtest -name "var-exists-nodefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env INPUT]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-nodefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env INPUT]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-nodefault" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env INPUT]
+" -results "
+variable-is RESULT ''
+no-change-except RESULT
+"
+
+INPUT="foobar"
+runtest -name "var-exists-olddefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env INPUT olddefault]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-olddefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env INPUT olddefault]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-olddefault" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env INPUT olddefault]
+" -results "
+variable-is RESULT olddefault
+no-change-except RESULT
+"
+
+INPUT="foobar"
+runtest -name "var-exists-newdefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -default newdefault INPUT]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-newdefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -default newdefault INPUT]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-newdefault" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env -default newdefault INPUT]
+" -results "
+variable-is RESULT newdefault
+no-change-except RESULT
+"
+
+INPUT="foobar"
+runtest -name "var-exists-oldandnewdefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -default newdefault INPUT olddefault]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-oldandnewdefault" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -default newdefault INPUT olddefault]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-oldandnewdefault" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env -default newdefault INPUT olddefault]
+" -results "
+variable-is RESULT newdefault
+no-change-except RESULT
+"
+
+
+
+
+
+INPUT="foobar"
+runtest -name "var-exists-nodefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff INPUT]
+" -results "
+variable-is RESULT pref${INPUT}suff
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-nodefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff INPUT]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-nodefault-prefixsuffix" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff INPUT]
+" -results "
+variable-is RESULT ''
+no-change-except RESULT
+"
+
+INPUT="foobar"
+runtest -name "var-exists-olddefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff INPUT olddefault]
+" -results "
+variable-is RESULT pref${INPUT}suff
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-olddefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff INPUT olddefault]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-olddefault-prefixsuffix" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff INPUT olddefault]
+" -results "
+variable-is RESULT olddefault
+no-change-except RESULT
+"
+
+INPUT="foobar"
+runtest -name "var-exists-newdefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff -default newdefault INPUT]
+" -results "
+variable-is RESULT pref${INPUT}suff
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-newdefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff -default newdefault INPUT]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-newdefault-prefixsuffix" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff -default newdefault INPUT]
+" -results "
+variable-is RESULT newdefault
+no-change-except RESULT
+"
+
+INPUT="foobar"
+runtest -name "var-exists-oldandnewdefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff -default newdefault INPUT olddefault]
+" -results "
+variable-is RESULT pref${INPUT}suff
+no-change-except RESULT
+"
+
+INPUT=""
+runtest -name "var-empty-oldandnewdefault-prefixsuffix" -precommands "
+export INPUT='$INPUT'
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff -default newdefault INPUT olddefault]
+" -results "
+variable-is RESULT $INPUT
+no-change-except RESULT
+"
+
+runtest -name "var-not-exists-oldandnewdefault-prefixsuffix" -precommands "
+unset INPUT
+" -commands "
+setenv RESULT [env -prefix pref -suffix suff -default newdefault INPUT olddefault]
+" -results "
+variable-is RESULT newdefault
+no-change-except RESULT
+"
+
+

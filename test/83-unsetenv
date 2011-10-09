@@ -1,0 +1,230 @@
+#!/bin/bash
+
+
+runtest -name "unsetenv-setbefore-setduring-unsetafter" -precommands "
+export RESULT='superfail'
+" -commands "
+setenv RESULT fail
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-emptybefore-setduring-unsetafter" -precommands "
+export RESULT=''
+" -commands "
+setenv RESULT fail
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-unsetbefore-setduring-unsetafter" -precommands "
+unset RESULT
+" -commands "
+setenv RESULT fail
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+
+runtest -name "unsetenv-setbefore-emptyduring-unsetafter" -precommands "
+export RESULT='superfail'
+" -commands "
+setenv RESULT {}
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-emptybefore-emptyduring-unsetafter" -precommands "
+export RESULT=''
+" -commands "
+setenv RESULT {}
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-unsetbefore-emptyduring-unsetafter" -precommands "
+unset RESULT
+" -commands "
+setenv RESULT {}
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+
+runtest -name "unsetenv-setbefore-unsetduring-unsetafter" -precommands "
+export RESULT='superfail'
+" -commands "
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-emptybefore-unsetduring-unsetafter" -precommands "
+export RESULT=''
+" -commands "
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-unsetbefore-unsetduring-unsetafter" -precommands "
+unset RESULT
+" -commands "
+unsetenv RESULT
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+runtest -name "unsetenv-setbefore-setduring-setafter" -precommands "
+export RESULT='superfail'
+" -commands "
+setenv RESULT fail
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-emptybefore-setduring-setafter" -precommands "
+export RESULT=''
+" -commands "
+setenv RESULT fail
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-unsetbefore-setduring-setafter" -precommands "
+unset RESULT
+" -commands "
+setenv RESULT fail
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+
+runtest -name "unsetenv-setbefore-emptyduring-setafter" -precommands "
+export RESULT='superfail'
+" -commands "
+setenv RESULT {}
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-emptybefore-emptyduring-setafter" -precommands "
+export RESULT=''
+" -commands "
+setenv RESULT {}
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-unsetbefore-emptyduring-setafter" -precommands "
+unset RESULT
+" -commands "
+setenv RESULT {}
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+
+runtest -name "unsetenv-setbefore-unsetduring-setafter" -precommands "
+export RESULT='superfail'
+" -commands "
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-emptybefore-unsetduring-setafter" -precommands "
+export RESULT=''
+" -commands "
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+runtest -name "unsetenv-unsetbefore-unsetduring-setafter" -precommands "
+unset RESULT
+" -commands "
+unsetenv RESULT
+setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+

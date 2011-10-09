@@ -1,0 +1,700 @@
+#!/bin/bash
+
+
+function prereq-suite {
+
+local cmd
+cmd="${1:-prereq}"
+
+runtest -name "$cmd-empty-1" -commands "
+$cmd
+" -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+runtest -name "$cmd-explicit-self-1a" -commands "
+inhibit-self-conflict
+$cmd package
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-explicit-self-1b" \
+	-extraloadedmodules "package/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd package
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-explicit-self-1c" \
+	-extraloadedmodules "package/version" \
+	-commands "
+inhibit-self-conflict
+$cmd package
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-explicit-self-1d"\
+	-extraloadedmodules "otherpackage/version" \
+	-commands "
+inhibit-self-conflict
+$cmd package
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-explicit-self-2a" -commands "
+inhibit-self-conflict
+$cmd package/version
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-explicit-self-2b" \
+	-extraloadedmodules "package/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd package/version
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-explicit-self-2c" \
+	-extraloadedmodules "package/version" \
+	-commands "
+inhibit-self-conflict
+$cmd package/version
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-explicit-self-2d" \
+	-extraloadedmodules "otherpackage/version" \
+	-commands "
+inhibit-self-conflict
+$cmd package/version
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+runtest -name "$cmd-single-base-1a" -commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-base-1b" \
+	-extraloadedmodules "otherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-base-1c" \
+	-extraloadedmodules "otherpackage/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-base-1d" \
+	-extraloadedmodules "otherpackage/otherversion/revision" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-base-1e" \
+	-extraloadedmodules "yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-base-1f" \
+	-extraloadedmodules "yetanotherpackage/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+# same as 1a
+#runtest -name "$cmd-single-base-2a" -commands "
+#inhibit-self-conflict
+#prereq otherpackage
+#" -results '
+#expect-audit-fail
+#expect-load-fail
+#'
+
+runtest -name "$cmd-single-base-2b" \
+	-extraloadedmodules "foo/bar otherpackage fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-base-2c" \
+	-extraloadedmodules "foo/bar otherpackage/otherversion fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-base-2d" \
+	-extraloadedmodules "foo/bar otherpackage/otherversion/revision fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-base-2e" \
+	-extraloadedmodules "foo/bar yetanotherpackage fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-base-2f" \
+	-extraloadedmodules "foo/bar yetanotherpackage/otherversion fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+
+runtest -name "$cmd-single-full-1a" -commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-1b" \
+	-extraloadedmodules "otherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-1c" \
+	-extraloadedmodules "otherpackage/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-full-1d" \
+	-extraloadedmodules "otherpackage/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/yetanotherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-1e" \
+	-extraloadedmodules "otherpackage/otherversion/revision" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-full-1f" \
+	-extraloadedmodules "yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-1g" \
+	-extraloadedmodules "yetanotherpackage/otherversion" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+# same as 1a
+#runtest -name "$cmd-single-full-2a" -commands "
+#inhibit-self-conflict
+#prereq otherpackage/otherversion
+#" -results '
+#expect-audit-fail
+#expect-load-fail
+#'
+
+runtest -name "$cmd-single-full-2b" \
+	-extraloadedmodules "foo/bar otherpackage fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-2c" \
+	-extraloadedmodules "foo/bar otherpackage/otherversion fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-full-2d" \
+	-extraloadedmodules "foo/bar otherpackage/otherversion fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/yetanotherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-2e" \
+	-extraloadedmodules "foo/bar otherpackage/otherversion/revision fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-single-full-2f" \
+	-extraloadedmodules "foo/bar yetanotherpackage fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-single-full-2g" \
+	-extraloadedmodules "foo/bar yetanotherpackage/otherversion fred/barney" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage/otherversion
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+
+
+
+# multiple commands
+
+runtest -name "$cmd-multi-base-1a" -commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1b" \
+	-extraloadedmodules "goodpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1c" \
+	-extraloadedmodules "otherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1d" \
+	-extraloadedmodules "someotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1e" \
+	-extraloadedmodules "yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1f" \
+	-extraloadedmodules "otherpackage someotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1g" \
+	-extraloadedmodules "otherpackage yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1h" \
+	-extraloadedmodules "someotherpackage yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1i" \
+	-extraloadedmodules "otherpackage someotherpackage yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-multi-base-1j" \
+	-extraloadedmodules "goodpackage otherpackage someotherpackage yetanotherpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-multi-base-1k" \
+	-extraloadedmodules "goodpackage greatpackage fantasticpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1l" \
+	-extraloadedmodules "goodpackage someotherpackage greatpackage fantasticpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multi-base-1m" \
+	-extraloadedmodules "goodpackage yetanotherpackage greatpackage someotherpackage fantasticpackage otherpackage yaypackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage
+$cmd someotherpackage
+$cmd yetanotherpackage
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+
+
+# FIXME: still to do from here down
+
+
+# multiple args on multiple commands
+
+
+runtest -name "$cmd-multimulti-base-1a" -commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1b" \
+	-extraloadedmodules "goodpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1c" \
+	-extraloadedmodules "otherpackage2" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1d" \
+	-extraloadedmodules "someotherpackage2" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1e" \
+	-extraloadedmodules "yetanotherpackage2" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1f" \
+	-extraloadedmodules "otherpackage2 someotherpackage2" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1g" \
+	-extraloadedmodules "otherpackage2 yetanotherpackage2" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1h" \
+	-extraloadedmodules "someotherpackage2 yetanotherpackage2" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1i" \
+	-extraloadedmodules "otherpackage2 someotherpackage2 yetanotherpackage2" \
+	-extranonloadedmodules "otherpackage1 otherpackage3 someotherpackage1 someotherpackage3 yetanotherpackage1 yetanotherpackage3" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-multimulti-base-1j" \
+	-extraloadedmodules "goodpackage otherpackage2 someotherpackage2 yetanotherpackage2" \
+	-extranonloadedmodules "otherpackage1 otherpackage3 someotherpackage1 someotherpackage3 yetanotherpackage1 yetanotherpackage3" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+runtest -name "$cmd-multimulti-base-1k" \
+	-extraloadedmodules "goodpackage greatpackage fantasticpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1l" \
+	-extraloadedmodules "goodpackage someotherpackage2 greatpackage fantasticpackage" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-fail
+expect-load-fail
+'
+
+runtest -name "$cmd-multimulti-base-1m" \
+	-extraloadedmodules "goodpackage yetanotherpackage2 greatpackage someotherpackage2 fantasticpackage otherpackage2 yaypackage" \
+	-extranonloadedmodules "otherpackage1 otherpackage3 someotherpackage1 someotherpackage3 yetanotherpackage1 yetanotherpackage3" \
+	-commands "
+inhibit-self-conflict
+$cmd otherpackage1 otherpackage2 otherpackage3
+$cmd someotherpackage1 someotherpackage2 someotherpackage3
+$cmd yetanotherpackage1 yetanotherpackage2 yetanotherpackage3
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+
+}
+
+prereq-suite prereq
+prereq-suite hard-prereq
+
+
+
+

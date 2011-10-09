@@ -1,0 +1,115 @@
+#!/bin/bash
+
+
+unset bases
+declare -a bases
+
+function seenbase {
+	local i
+	for i in "${bases[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+
+DEFINITION_ONLY=y source "${BASH_SOURCE[0]%/*}"/20-simple-abstractions
+
+
+function flavour-abstraction-suite {
+
+local -a envvars
+local envvar
+local cmdname
+
+while [ "x$1" != "x--" -a $# -gt 0 ]; do
+	envvars[${#envvars[@]}]="$1"
+	shift
+done
+shift
+
+if [ ! $# -gt 0 ]; then
+	echo "Warning: Ignoring dodgy call to flavour-abstraction-suite:"
+	echo "Warning: no command/args, only envvars (${#envvars[@]})"
+	echo "Warning: Maybe -- was forgotten?"
+	return 1
+fi
+
+cmdname="$1"
+shift
+
+local realnamebase
+realnamebase="$cmdname"
+for envvar in "${envvars[@]}"; do
+	realnamebase="$realnamebase-$envvar"
+done
+local namebase
+namebase="$realnamebase"
+
+local i
+i=1
+while seenbase "$namebase"; do
+	i="$(($i + 1))"
+	namebase="$realnamebase-$i"
+done
+bases[${#bases[@]}]="$namebase"
+
+
+runtest -name "$namebase-invalid-1" -commands "
+$cmdname -flavour invalid $*
+" -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+simple-abstraction-suite "${envvars[@]}" -- "$cmdname" "$@"
+simple-abstraction-suite "${envvars[@]}" -- "$cmdname" -flavour '""' "$@"
+simple-abstraction-suite "${envvars[@]}" -- "$cmdname" -flavour none "$@"
+simple-abstraction-suite "${envvars[@]}_GNU" -- "$cmdname" -flavour gnu "$@"
+simple-abstraction-suite "${envvars[@]}_INTEL" -- "$cmdname" -flavour intel "$@"
+simple-abstraction-suite "${envvars[@]}_PGI" -- "$cmdname" -flavour pgi "$@"
+simple-abstraction-suite "${envvars[@]}_PGI" -- "$cmdname" -flavour portland "$@"
+
+# combos
+simple-abstraction-suite "${envvars[@]}_GNU" "${envvars[@]}_INTEL" -- "$cmdname" -flavour gnu,intel "$@"
+simple-abstraction-suite "${envvars[@]}_GNU" "${envvars[@]}_PGI" -- "$cmdname" -flavour gnu,pgi "$@"
+simple-abstraction-suite "${envvars[@]}_INTEL" "${envvars[@]}_PGI" -- "$cmdname" -flavour intel,pgi "$@"
+simple-abstraction-suite "${envvars[@]}_GNU" "${envvars[@]}_INTEL" "${envvars[@]}_PGI" -- "$cmdname" -flavour gnu,intel,pgi "$@"
+simple-abstraction-suite "${envvars[@]}_GNU" "${envvars[@]}_INTEL" "${envvars[@]}_PGI" -- "$cmdname" -flavour all "$@"
+
+}
+
+
+if [ "x$DEFINITION_ONLY" = "xy" ]; then
+	return
+fi
+
+
+flavour-abstraction-suite PKG_CONFIG_PATH -- pkgconfig-dir
+flavour-abstraction-suite PKG_CONFIG_PATH -- pkg-config-dir
+
+flavour-abstraction-suite PYTHONPATH -- python-lib-dir
+flavour-abstraction-suite PERLLIB -- perl-lib-dir
+flavour-abstraction-suite PERL5LIB -- perl5-lib-dir
+
+flavour-abstraction-suite C_INCLUDE_PATH -- include-dir -language c
+flavour-abstraction-suite CPLUS_INCLUDE_PATH -- include-dir -language c++
+flavour-abstraction-suite CPATH -- include-dir -language cpp
+flavour-abstraction-suite CPATH -- include-dir -language c++cpp
+flavour-abstraction-suite FPATH -- include-dir -language f
+flavour-abstraction-suite FPATH -- include-dir -language f77
+flavour-abstraction-suite FPATH -- include-dir -language f90
+flavour-abstraction-suite LDPATH -- include-dir -language ld
+flavour-abstraction-suite ARPATH -- include-dir -language ar
+flavour-abstraction-suite ASPATH -- include-dir -language as
+flavour-abstraction-suite PYTHONPATH -- include-dir -language py
+flavour-abstraction-suite PERLLIB -- include-dir -language pl
+flavour-abstraction-suite PERL5LIB -- include-dir -language pl5
+
+flavour-abstraction-suite LIBRARY_PATH -- lib-dir '-force "library_path no-ld_run_path no-ld_library_path"'
+
+
+

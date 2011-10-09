@@ -1,0 +1,368 @@
+#!/bin/bash
+
+default_new_version="0.9"
+
+owner_pattern="${OWNER_PATTERN:-[a-z][a-z][a-z]900}"
+group_pattern="${GROUP_PATTERN:-z00}"
+
+if [ "x$1" = "x--help" -o "x$1" = "x-h" ]; then
+	echo "Usage: $0 [new-default-version]"
+	echo "The default new-default-version, if none is specified, is $default_new_version"
+	exit 1
+fi
+
+base="/opt/Modules/extensions"
+
+new_default="${1:-$default_new_version}"
+
+compareall="compare-extensions-show-all-modules"
+case "$0" in
+	*/*)
+		compareall="${0%/*}/$compareall"
+		;;
+esac
+case "$compareall" in
+	/*)
+		;;
+	*/*)
+		compareall="$(pwd)/$compareall"
+		;;
+	*)
+		;;
+esac
+
+if ! python -c ""; then
+	echo "$0: Error: Unable to find python (necessary for atomic symlink update)"
+	exit 1
+fi
+
+if ! python -c "import posix"; then
+	echo "$0: Error: python cannot find the posix module (necessary for atomic symlink update)"
+	exit 1
+fi
+
+if ! python -c "import posix ; posix.rename"; then
+	echo "$0: Error: python posix module does not have rename() function (necessary for atomic symlink update)"
+	exit 1
+fi
+
+
+cd "$base"
+
+if [ ! -e "$new_default" ]; then
+	echo "$0: Error: no directory '$new_default' exists"
+	exit 1
+fi
+
+if [ ! -d "$new_default" ]; then
+	echo "$0: Error: '$new_default' exists, but is not a directory"
+	exit 1
+fi
+
+if [ ! -e "default" ]; then
+	echo "$0: Error: no directory 'default' exists"
+	exit 1
+fi
+
+if [ ! -L "default" ]; then
+	echo "$0: Error: 'default' is not a symlink"
+	exit 1
+fi
+
+current_default="$(stat -c "%N" default | sed -e 's/^.* -> `//' -e 's/'"'"'$//')"
+
+echo "Current default: $current_default"
+
+echo "Checking proposed new default: $new_default"
+
+# The conditions are:
+#  * The directory must be owned by $owner_pattern.
+#  * The directory must be group owned by $group_pattern.
+#  * The directory must have mode exactly 775 or 2775.
+#  * Every file in the directory must be a regular file.
+#  * Every file in the directory must be owned by $owner_pattern.
+#  * Every file in the directory must be group owned by $group_pattern.
+#  * Every file in the directory must have mode exactly 664.
+
+owner="$(stat -c "%U" "$new_default")"
+group="$(stat -c "%G" "$new_default")"
+mode="$(stat -c "%a" "$new_default")"
+humanmode="$(stat -c "%A" "$new_default")"
+
+case "$owner" in
+	$owner_pattern)
+		;;
+	*)
+		echo "$0: Error: '$new_default' has owner $owner, must be $owner_pattern"
+		exit 1
+		;;
+esac
+
+case "$group" in
+	z00)
+		;;
+	*)
+		echo "$0: Error: '$new_default' has group owner $group, must be $group_pattern"
+		exit 1
+		;;
+esac
+
+if [ "x$mode" != "x775" -a "x$mode" != "x2775" ]; then
+	echo "$0: Error: '$new_default' has mode $humanmode ($mode), must be drwxrwxr-x (775) or drwxrwsr-x (2775)"
+	exit 1
+fi
+
+#for i in "$new_default/"*; do
+for i in $(find "$new_default"); do
+	if [ ! -f "$i" -a ! -d "$i" ]; then
+		echo "$0: Error: '$i' is not a regular file or a directory"
+		exit 1
+	fi
+
+	owner="$(stat -c "%U" "$i")"
+	group="$(stat -c "%G" "$i")"
+	mode="$(stat -c "%a" "$i")"
+	humanmode="$(stat -c "%A" "$i")"
+
+	case "$owner" in
+		$owner_pattern)
+			;;
+		*)
+			echo "$0: Error: '$i' has owner $owner, must be $owner_pattern"
+			exit 1
+			;;
+	esac
+
+	case "$group" in
+		z00)
+			;;
+		*)
+			echo "$0: Error: '$1' has group owner $group, must be $group_pattern"
+			exit 1
+			;;
+	esac
+
+	if [ -L "$i" ]; then
+		if [ "x$mode" != "x777" ]; then
+			echo "$0: Error: '$i' has mode $humanmode ($mode), must be lrwxrwxrwx (777)"
+			exit 1
+		fi
+	elif [ -f "$i" ]; then
+		case "$i" in
+			"$new_default"/bin/*)
+				if [ "x$mode" != "x774" ]; then
+					echo "$0: Error: '$i' has mode $humanmode ($mode), must be -rwxrwxr-- (774)"
+					exit 1
+				fi
+				;;
+			*)
+				if [ "x$mode" != "x664" ]; then
+					echo "$0: Error: '$i' has mode $humanmode ($mode), must be -rw-rw-r-- (664)"
+					exit 1
+				fi
+				;;
+		esac
+	elif [ -d "$i" ]; then
+		if [ "x$mode" != "x775" -a "x$mode" != "x2775" ]; then
+			echo "$0: Error: '$i' has mode $humanmode ($mode), must be drwxrwxr-x (775) or drwxrwsr-x (2775)"
+			exit 1
+		fi
+	fi
+
+done
+
+
+# Check that sourcing extensions.tcl doesn't have any syntax errors...
+
+echo "Checking with a simple module for simple problems (eg. syntax errors)"
+
+tmpmodulefile="/tmp/tmpmodulefile$$"
+cat <<EOF >"$tmpmodulefile"
+#%Module
+source $base/$new_default/extensions.tcl
+EOF
+
+output="$(module show "$tmpmodulefile" 2>&1 0>&1)"
+rc="$?"
+if [ "$rc" -ne 0 ]; then
+	echo "$0: Error: Unable to show simple modulefile: \"module show $tmpmodulefile\" returned $rc"
+	echo "$0: Contents of $tmpmodulefile are:"
+	cat "$tmpmodulefile"
+	echo "$0: Output of \"module show $tmpmodulefile\":"
+	echo "$output"
+	rm -f "$tmpmodulefile"
+	exit 1
+fi
+
+output="$(module load "$tmpmodulefile" 2>&1 0>&1)"
+rc="$?"
+if [ "$rc" -ne 0 ]; then
+	echo "$0: Error: Unable to load simple modulefile: \"module load $tmpmodulefile\" returned $rc"
+	echo "$0: Contents of $tmpmodulefile are:"
+	cat "$tmpmodulefile"
+	echo "$0: Output of \"module load $tmpmodulefile\":"
+	echo "$output"
+	rm -f "$tmpmodulefile"
+	exit 1
+fi
+
+output="$(module unload "$tmpmodulefile" 2>&1 0>&1)"
+rc="$?"
+if [ "$rc" -ne 0 ]; then
+	echo "$0: Error: Unable to unload simple modulefile: \"module unload $tmpmodulefile\" returned $rc"
+	echo "$0: Contents of $tmpmodulefile are:"
+	cat "$tmpmodulefile"
+	echo "$0: Output of \"module unload $tmpmodulefile\":"
+	echo "$output"
+	rm -f "$tmpmodulefile"
+	exit 1
+fi
+
+rm -f "$tmpmodulefile"
+
+echo "Okay"
+echo ""
+
+
+# Try to run audit-modules over all modules that use extensions... (with $ALTERNATE_MODULE_EXTENSIONS set of course)
+
+# Maybe better is to run audit-modules twice, once normally, and once with the alternate extensions.
+# They should match, and if they don't then the "new" one should be an "improvement", ie. fewer warnings/errors.
+
+echo "Running before-and-after audit-modules (may take a while)..."
+
+# if either of these modules fail to load, not the end of the world
+module load admin audit-modules
+
+original_audit="$(audit-modules)"
+new_audit="$(ALTERNATE_MODULE_EXTENSIONS="$base/$new_default/extensions.tcl" audit-modules)"
+
+# pull out the error/warning counts, compare them
+original_warnings="$(echo "$original_audit" | sed -ne 's/ WARNINGS TOTAL$//p')"
+original_errors="$(echo "$original_audit" | sed -ne 's/ ERRORS TOTAL$//p')"
+new_warnings="$(echo "$new_audit" | sed -ne 's/ WARNINGS TOTAL$//p')"
+new_errors="$(echo "$new_audit" | sed -ne 's/ ERRORS TOTAL$//p')"
+if [ "x$original_warnings" = "x" ]; then
+	original_warnings=0
+fi
+if [ "x$original_errors" = "x" ]; then
+	original_errors=0
+fi
+if [ "x$new_warnings" = "x" ]; then
+	new_warnings=0
+fi
+if [ "x$new_errors" = "x" ]; then
+	new_errors=0
+fi
+echo "Under current version $current_default: $original_warnings warnings, $original_errors errors"
+echo "Under new version $new_default: $new_warnings warnings, $new_errors errors"
+
+errcountstatus=""
+if [ "$new_warnings" -eq "$original_warnings" -o "$new_errors" -eq "$original_errors" ]; then
+	errcountstatus="same"
+fi
+if [ "$new_warnings" -lt "$original_warnings" -o "$new_errors" -lt "$original_errors" ]; then
+	errcountstatus="better"
+fi
+if [ "$new_warnings" -gt "$original_warnings" -o "$new_errors" -gt "$original_errors" ]; then
+	errcountstatus="worse"
+fi
+
+case "$errcountstatus" in
+	same)
+		echo "Warning/error counts are the same"
+		;;
+	better)
+		echo "Warning/error counts improved (became fewer)"
+		;;
+	worse)
+		echo "$0: Error: Warning/error counts worsened (increased)"
+		;;
+esac
+
+output="$(diff -u <(echo "$original_audit") <(echo "$new_audit"))"
+rc="$?"
+if [ "$rc" -ne 0 ]; then
+	echo "$0: Error: Differences in before-and-after audit-modules"
+	echo "$0: Output of diff -u:"
+	echo "$output"
+	case "$errcountstatus" in
+		same)
+			exit 1
+			;;
+		better)
+			echo "$0: Warning/error counts improved, forgiving this"
+			echo "$0: IT IS STILL ADVISABLE TO CONFIRM THAT THE DIFFERENCES ARE HARMLESS"
+			echo "$0: Review the output of"
+			echo "module load admin audit-modules"
+			echo "audit-modules"
+			echo "ALTERNATE_MODULE_EXTENSIONS=\"$base/$new_default/extensions.tcl\" audit-modules"
+			echo ""
+			;;
+		worse)
+			echo "$0: Review the output of"
+			echo "module load admin audit-modules"
+			echo "audit-modules"
+			echo "ALTERNATE_MODULE_EXTENSIONS=\"$base/$new_default/extensions.tcl\" audit-modules"
+			exit 1
+			;;
+	esac
+else
+	echo "No differences found in before-and-after audit-modules"
+fi
+#echo "$original_audit"
+#echo "$new_audit"
+
+
+echo "Okay"
+echo ""
+
+
+
+echo "Running compare-extensions-show-all-modules to check for differences in the output of module show (may take a while)..."
+
+output="$("$compareall" "$current_default" "$new_default")"
+rc="$?"
+if [ "$rc" -ne 0 ]; then
+	echo "$0: Warning: Differences in before-and-after module show"
+	echo "$0: Output of compare-extensions-show-all-modules:"
+	echo ""
+	echo "$output"
+	echo ""
+	echo "$0: IT IS ADVISABLE TO CONFIRM THAT THE DIFFERENCES ARE HARMLESS"
+	echo "$0: Review the output of"
+	echo "$compareall $current_default $new_default -U 100000 | less"
+	echo ""
+fi
+
+echo "Okay"
+echo ""
+
+
+
+echo ""
+echo "Success, version $new_default looks fine."
+echo ""
+
+
+# Atomically updating a symlink is a bit fiddly.
+
+# Looks like rename(2) will atomically overwrite symlinks, if another one is setup first
+# and then moved into place.  mv(1) does not do this, it resolves the destination symlink
+# first and then uselessly dumps the "new" symlink into the resolved directory.  Can't see
+# any option to mv to override this behaviour.
+
+# The easiest/most compact way of calling rename(2) is via python.
+
+echo "If you're convinced, here's what you need to run to update to a default of $new_default:"
+echo ""
+#echo "   cd \"$base\" && /bin/rm default && /bin/ln -s \"$new_default\" default"
+echo "   cd \"$base\" && /bin/ln -s \"$new_default\" default.NEW && python -c 'import posix ; posix.rename(\"default.NEW\", \"default\")'"
+echo ""
+echo "And here's what you need to back out in a hurry:"
+echo ""
+#echo "   cd \"$base\" && /bin/rm default && /bin/ln -s \"$current_default\" default"
+echo "   cd \"$base\" && /bin/ln -s \"$current_default\" default.OLD && python -c 'import posix ; posix.rename(\"default.OLD\", \"default\")'"
+echo ""
+
+

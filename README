@@ -1,0 +1,17 @@
+
+This is a very, very early version of modext.  It has its heritage in "module
+extensions", and almost everything except for the code itself is out of date,
+still referring to module extensions instead of modext.
+
+--------------------
+
+For information on these "module extensions", refer to the comments at the top
+of the main extensions.tcl file, as well as those in the individual extension
+tcl files.
+
+Another good place to look is in the main template modulefile in
+/opt/Modules/template
+
+kjp900, 2008-12-17
+
+

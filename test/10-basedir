@@ -1,0 +1,319 @@
+#!/bin/bash
+
+
+runtest -name "inhibit-base-envvar-1" -commands '
+inhibit-base-envvar
+' -results '
+no-variable PACKAGE_BASE
+no-variable PACKAGE_ROOT
+no-change
+'
+
+runtest -name "inhibit-base-envvar-2" -commands '
+inhibit-base-envvar
+allow-base-envvar
+' -results '
+variable-exists PACKAGE_BASE
+variable-exists PACKAGE_ROOT
+no-change
+'
+
+runtest -name "inhibit-version-envvar-1" -commands '
+inhibit-version-envvar
+' -results '
+no-variable PACKAGE_VERSION
+no-change
+'
+
+runtest -name "inhibit-version-envvar-2" -commands '
+inhibit-version-envvar
+allow-version-envvar
+' -results '
+variable-exists PACKAGE_VERSION
+no-change
+'
+
+
+
+runtest -name "set-package-1" -commands '
+' -results '
+variable-is PACKAGE_VERSION version
+no-change
+'
+
+runtest -name "set-package-2" -commands '
+set-package otherpackage
+' -results '
+variable-is OTHERPACKAGE_VERSION version
+variable-is OTHERPACKAGE_BASE /apps/package/version
+variable-is OTHERPACKAGE_ROOT /apps/package/version
+no-variable PACKAGE_VERSION
+no-change-except OTHERPACKAGE_VERSION OTHERPACKAGE_BASE OTHERPACKAGE_ROOT
+'
+
+runtest -name "set-package-3" -commands '
+set-package fancy-package
+' -results '
+variable-is FANCY_PACKAGE_VERSION version
+variable-is FANCY_PACKAGE_BASE /apps/package/version
+variable-is FANCY_PACKAGE_ROOT /apps/package/version
+no-variable PACKAGE_VERSION
+no-change-except FANCY_PACKAGE_VERSION FANCY_PACKAGE_BASE FANCY_PACKAGE_ROOT
+'
+
+runtest -name "set-package-4" -commands '
+set-package otherpackage
+set-basedir
+' -results '
+variable-is OTHERPACKAGE_VERSION version
+variable-is OTHERPACKAGE_BASE /apps/otherpackage/version
+variable-is OTHERPACKAGE_ROOT /apps/otherpackage/version
+no-variable PACKAGE_VERSION
+no-change-except OTHERPACKAGE_VERSION OTHERPACKAGE_BASE OTHERPACKAGE_ROOT
+'
+
+runtest -name "set-package-5" -commands '
+set-package fancy-package
+set-basedir
+' -results '
+variable-is FANCY_PACKAGE_VERSION version
+variable-is FANCY_PACKAGE_BASE /apps/fancy-package/version
+variable-is FANCY_PACKAGE_ROOT /apps/fancy-package/version
+no-variable PACKAGE_VERSION
+no-change-except FANCY_PACKAGE_VERSION FANCY_PACKAGE_BASE FANCY_PACKAGE_ROOT
+'
+
+
+runtest -name "package-envvar-prefix-1" -commands '
+package-envvar-prefix PKG
+' -results '
+variable-is PKG_VERSION version
+variable-is PKG_BASE /apps/package/version
+variable-is PKG_ROOT /apps/package/version
+no-variable PACKAGE_BASE
+no-variable PACKAGE_ROOT
+no-variable PACKAGE_VERSION
+no-change-except PKG_VERSION PKG_BASE PKG_ROOT
+'
+
+runtest -name "package-envvar-prefix-2" -commands '
+set-package fancy-package
+package-envvar-prefix PKG
+set-basedir
+' -results '
+variable-is PKG_VERSION version
+variable-is PKG_BASE /apps/fancy-package/version
+variable-is PKG_ROOT /apps/fancy-package/version
+no-variable PACKAGE_BASE
+no-variable PACKAGE_ROOT
+no-variable PACKAGE_VERSION
+no-variable FANCY_PACKAGE_BASE
+no-variable FANCY_PACKAGE_ROOT
+no-variable FANCY_PACKAGE_VERSION
+no-change-except PKG_VERSION PKG_BASE PKG_ROOT
+'
+
+
+runtest -name "set-version-1" -commands '
+' -results '
+variable-is PACKAGE_VERSION version
+no-change
+'
+
+runtest -name "set-version-2" -commands '
+set-version otherversion
+' -results '
+variable-is PACKAGE_VERSION otherversion
+no-change
+'
+
+
+runtest -name "set-basedir-1" -commands '
+set-basedir
+' -results '
+variable-is PACKAGE_ROOT /apps/package/version
+no-change
+'
+
+runtest -name "set-basedir-2" -commands '
+set-basedir /applications/$::package/$::version
+' -results '
+variable-is PACKAGE_ROOT /applications/package/version
+no-change
+'
+
+runtest -name "set-basedir-3" -commands '
+set-basedir /applications/$::package/$::package-$::version
+' -results '
+variable-is PACKAGE_ROOT /applications/package/package-version
+no-change
+'
+
+runtest -name "set-basedir-4" -commands '
+set-basedir -root /applications
+' -results '
+variable-is PACKAGE_ROOT /applications/package/version
+no-change
+'
+
+runtest -name "set-basedir-5" -commands '
+set-basedir -package pkg
+' -results '
+variable-is PACKAGE_ROOT /apps/pkg/version
+no-change
+'
+
+runtest -name "set-basedir-6" -commands '
+set-basedir -version vers
+' -results '
+variable-is PACKAGE_ROOT /apps/package/vers
+no-change
+'
+
+runtest -name "set-basedir-7" -commands '
+set-basedir -package pkg -version vers
+' -results '
+variable-is PACKAGE_ROOT /apps/pkg/vers
+no-change
+'
+
+runtest -name "set-basedir-8" -commands '
+set-basedir -root /applications -package pkg -version vers
+' -results '
+variable-is PACKAGE_ROOT /applications/pkg/vers
+no-change
+'
+
+runtest -name "set-basedir-9" -commands '
+set-basedir -root /applications -version vers
+' -results '
+variable-is PACKAGE_ROOT /applications/package/vers
+no-change
+'
+
+runtest -name "set-basedir-10" -commands '
+set-basedir -root /applications -package pkg
+' -results '
+variable-is PACKAGE_ROOT /applications/pkg/version
+no-change
+'
+
+runtest -name "set-basedir-11" -commands '
+set-basedir -version none
+' -results '
+variable-is PACKAGE_ROOT /apps/package
+no-change
+'
+
+runtest -name "set-basedir-11b" -commands '
+set-basedir -version no
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-12" -commands '
+set-basedir -package pkg -version none
+' -results '
+variable-is PACKAGE_ROOT /apps/pkg
+no-change
+'
+
+runtest -name "set-basedir-12b" -commands '
+set-basedir -package pkg -version no
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-13" -commands '
+set-basedir -root applications -package pkg -version none
+' -results '
+variable-is PACKAGE_ROOT /applications/pkg
+no-change
+'
+
+runtest -name "set-basedir-13b" -commands '
+set-basedir -root applications -package pkg -version no
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-13c" -commands '
+set-basedir -root /applications -package pkg -version none
+' -results '
+variable-is PACKAGE_ROOT /applications/pkg
+no-change
+'
+
+runtest -name "set-basedir-13d" -commands '
+set-basedir -root /applications -package pkg -version no
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-14" -commands '
+set-basedir -root applications -version none
+' -results '
+variable-is PACKAGE_ROOT /applications/package
+no-change
+'
+
+runtest -name "set-basedir-14b" -commands '
+set-basedir -root applications -version no
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-14c" -commands '
+set-basedir -root /applications -version none
+' -results '
+variable-is PACKAGE_ROOT /applications/package
+no-change
+'
+
+runtest -name "set-basedir-14d" -commands '
+set-basedir -root /applications -version no
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-15" -commands '
+set-basedir special
+' -results '
+variable-is PACKAGE_ROOT /apps/package/version/special
+no-change
+'
+
+runtest -name "set-basedir-16" -commands '
+set-basedir -version none special
+' -results '
+variable-is PACKAGE_ROOT /apps/package/special
+no-change
+'
+
+runtest -name "set-basedir-16b" -commands '
+set-basedir -version no special
+' -results '
+previous-test
+'
+
+runtest -name "set-basedir-17" -commands '
+set-basedir super/special
+' -results '
+variable-is PACKAGE_ROOT /apps/package/version/super/special
+no-change
+'
+
+runtest -name "set-basedir-18" -commands '
+set-basedir -version none super/special
+' -results '
+variable-is PACKAGE_ROOT /apps/package/super/special
+no-change
+'
+
+runtest -name "set-basedir-18b" -commands '
+set-basedir -version no super/special
+' -results '
+previous-test
+'
+
+

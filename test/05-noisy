@@ -1,0 +1,159 @@
+#!/bin/bash
+
+
+runtest -name "normal-1" -commands '
+' -results '
+expect-quiet-module
+'
+
+runtest -name "normal-2" -expectfail -commands '
+' -results '
+expect-noisy-module
+'
+
+runtest -name "normal-3" -commands '
+puts stderr noise
+' -results '
+expect-noisy-module
+'
+
+runtest -name "normal-4" -expectfail -commands '
+puts stderr noise
+' -results '
+expect-quiet-module
+'
+
+
+runtest -name "exit-1" -commands '
+exit
+' -results '
+expect-load-fail
+expect-audit-success
+expect-quiet-module
+'
+
+runtest -name "exit-2" -expectfail -commands '
+exit
+' -results '
+expect-load-fail
+expect-audit-success
+expect-noisy-module
+'
+
+runtest -name "exit-3" -commands '
+puts stderr noise
+exit
+' -results '
+expect-load-fail
+expect-audit-success
+expect-noisy-module
+'
+
+runtest -name "exit-4" -expectfail -commands '
+puts stderr noise
+exit
+' -results '
+expect-load-fail
+expect-audit-success
+expect-quiet-module
+'
+
+
+runtest -name "break-1" -commands '
+break
+' -results '
+expect-load-fail
+expect-audit-success
+expect-quiet-module
+'
+
+runtest -name "break-2" -expectfail -commands '
+break
+' -results '
+expect-load-fail
+expect-audit-success
+expect-noisy-module
+'
+
+runtest -name "break-3" -commands '
+puts stderr noise
+break
+' -results '
+expect-load-fail
+expect-audit-success
+expect-noisy-module
+'
+
+runtest -name "break-4" -expectfail -commands '
+puts stderr noise
+break
+' -results '
+expect-load-fail
+expect-audit-success
+expect-quiet-module
+'
+
+
+runtest -name "continue-1" -commands '
+continue
+' -results '
+expect-quiet-module
+'
+
+runtest -name "continue-2" -expectfail -commands '
+continue
+' -results '
+expect-noisy-module
+'
+
+runtest -name "continue-3" -commands '
+puts stderr noise
+continue
+' -results '
+expect-noisy-module
+'
+
+runtest -name "continue-4" -expectfail -commands '
+puts stderr noise
+continue
+' -results '
+expect-quiet-module
+'
+
+
+runtest -name "error-1" -commands '
+foobar junk
+' -results '
+expect-load-fail
+expect-audit-fail
+expect-noisy-module
+'
+
+runtest -name "error-2" -expectfail -commands '
+foobar junk
+' -results '
+expect-load-fail
+expect-audit-fail
+expect-quiet-module
+'
+
+runtest -name "error-3" -commands '
+puts stderr noise
+foobar junk
+' -results '
+expect-load-fail
+expect-audit-fail
+expect-noisy-module
+'
+
+runtest -name "error-4" -expectfail -commands '
+puts stderr noise
+foobar junk
+' -results '
+expect-load-fail
+expect-audit-fail
+expect-quiet-module
+'
+
+
+

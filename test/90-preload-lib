@@ -1,0 +1,29 @@
+#!/bin/bash
+
+
+
+runtest -name "1" -commands '
+preload-lib libsomething.so
+' -results '
+before-previous-paths LD_PRELOAD /apps/package/version/libsomething.so
+no-change-except LD_PRELOAD
+'
+
+runtest -name "2" -commands '
+preload-lib lib/libsomething.so
+' -results '
+before-previous-paths LD_PRELOAD /apps/package/version/lib/libsomething.so
+no-change-except LD_PRELOAD
+'
+
+runtest -name "3" -commands '
+preload-lib libsomething.so
+preload-lib lib/libsomejunk.so
+preload-lib else/libother.so
+' -results '
+before-previous-paths LD_PRELOAD /apps/package/version/else/libother.so /apps/package/version/lib/libsomejunk.so /apps/package/version/libsomething.so
+no-change-except LD_PRELOAD
+'
+
+
+

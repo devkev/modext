@@ -1,0 +1,41 @@
+#!/bin/bash
+
+function domodule {
+	local op
+	op="$1"
+	shift
+	local list
+	list="$(module -t avail "$@" 2>&1 | sed -e 's/(default)//')"
+	for i in $list; do
+		case "$i" in
+			*:)
+				dir="${i%:}"
+				;;
+			*)
+				module "$op" "$i" 2>&1
+				;;
+		esac
+	done
+}
+
+
+case "$0" in
+	*-all-modules)
+		op="$0"
+		op="${op%-all-modules}"
+		op="${op##*/}"
+		;;
+	*)
+		op="${1:-show}"
+		shift
+		;;
+esac
+
+if [ $# -eq 0 ]; then
+	domodule "$op" ""
+else
+	for i; do
+		domodule "$op" "$i"
+	done
+fi
+

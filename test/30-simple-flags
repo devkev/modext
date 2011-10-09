@@ -1,0 +1,705 @@
+#!/bin/bash
+
+
+runtest -name "set-flags-empty-1" -commands "
+set-flags
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "set-flags-empty-2" -commands "
+set-flags -language c
+" -results "
+variable-is CFLAGS ''
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-flags-simple-1" -commands "
+set-flags -language c foo
+" -results "
+variable-is CFLAGS foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-flags-simple-2" -commands "
+set-flags -language c -- foo
+" -results "
+variable-is CFLAGS foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-flags-simple-3" -commands "
+set-flags -language c -- -Dfoo
+" -results "
+variable-is CFLAGS -Dfoo
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-flags-simple-4" -commands "
+set-flags -language c -- -L /foo
+" -results "
+variable-is CFLAGS -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-flags-simple-5" -commands "
+set-flags -language c -- -L /foo -I/whatever
+" -results "
+variable-is CFLAGS -L /foo -I/whatever
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-flags-multi-1" -commands "
+set-flags -language c,c++ foo
+" -results "
+variable-is CFLAGS foo
+variable-is CXXFLAGS foo
+no-change-except CFLAGS CXXFLAGS
+"
+
+
+runtest -name "set-flags-multi-2" -commands "
+set-flags -language c,c++ -- -L /foo -I/whatever
+" -results "
+variable-is CFLAGS -L /foo -I/whatever
+variable-is CXXFLAGS -L /foo -I/whatever
+no-change-except CFLAGS CXXFLAGS
+"
+
+
+runtest -name "set-flags-multi-3" -commands "
+set-flags -language c,c++,f,ld foo
+" -results "
+variable-is CFLAGS foo
+variable-is CXXFLAGS foo
+variable-is FFLAGS foo
+variable-is LDFLAGS foo
+no-change-except CFLAGS CXXFLAGS FFLAGS LDFLAGS
+"
+
+
+runtest -name "set-flags-multi-4" -commands "
+set-flags -language c,c++,f,ld -- -L /foo -I/whatever
+" -results "
+variable-is CFLAGS -L /foo -I/whatever
+variable-is CXXFLAGS -L /foo -I/whatever
+variable-is FFLAGS -L /foo -I/whatever
+variable-is LDFLAGS -L /foo -I/whatever
+no-change-except CFLAGS CXXFLAGS FFLAGS LDFLAGS
+"
+
+
+runtest -name "set-flags-flavour-1" -commands "
+set-flags -language c -flavour intel -- -L /foo -I/whatever
+" -results "
+variable-is CFLAGS_INTEL -L /foo -I/whatever
+no-change-except CFLAGS_INTEL
+"
+
+
+runtest -name "set-flags-flavour-2" -commands "
+set-flags -language c -flavour intel,gnu -- -L /foo -I/whatever
+" -results "
+variable-is CFLAGS_INTEL -L /foo -I/whatever
+variable-is CFLAGS_GNU -L /foo -I/whatever
+no-change-except CFLAGS_INTEL CFLAGS_GNU
+"
+
+
+runtest -name "set-flags-flavour-3" -commands "
+set-flags -language c,c++,f,ld -flavour intel,gnu -- -L /foo -I/whatever
+" -results "
+variable-is CFLAGS_INTEL -L /foo -I/whatever
+variable-is CXXFLAGS_INTEL -L /foo -I/whatever
+variable-is FFLAGS_INTEL -L /foo -I/whatever
+variable-is LDFLAGS_INTEL -L /foo -I/whatever
+variable-is CFLAGS_GNU -L /foo -I/whatever
+variable-is CXXFLAGS_GNU -L /foo -I/whatever
+variable-is FFLAGS_GNU -L /foo -I/whatever
+variable-is LDFLAGS_GNU -L /foo -I/whatever
+no-change-except CFLAGS_INTEL CXXFLAGS_INTEL FFLAGS_INTEL LDFLAGS_INTEL CFLAGS_GNU CXXFLAGS_GNU FFLAGS_GNU LDFLAGS_GNU
+"
+
+
+runtest -name "set-flags-packaged-simple-1" -commands "
+set-flags -force packaged-envvars -language c foo
+" -results "
+variable-is PACKAGE_CFLAGS foo
+no-change-except PACKAGE_CFLAGS
+"
+
+
+runtest -name "set-flags-packaged-flavour-1" -commands "
+set-flags -force packaged-envvars -language c -flavour intel -- -L /foo -I/whatever
+" -results "
+variable-is PACKAGE_CFLAGS_INTEL -L /foo -I/whatever
+no-change-except PACKAGE_CFLAGS_INTEL
+"
+
+
+
+
+# ensure-flags
+
+runtest -name "ensure-flags-empty-1" -commands "
+ensure-flags
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "ensure-flags-empty-2" -commands "
+ensure-flags -language c
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "ensure-flags-empty-3" -commands "
+ensure-flags foo
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "ensure-flags-simple-1" -commands "
+ensure-flags -language c foo
+" -results "
+after-previous-flags CFLAGS foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-simple-2" -commands "
+ensure-flags -language c -- foo
+" -results "
+after-previous-flags CFLAGS foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-simple-3" -commands "
+ensure-flags -language c -- -Dfoo
+" -results "
+after-previous-flags CFLAGS -Dfoo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-simple-4" -commands "
+ensure-flags -language c -- -L /foo
+" -results "
+after-previous-flags CFLAGS -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-simple-5" -commands "
+ensure-flags -language c -- -L /foo -I/whatever
+" -results "
+after-previous-flags CFLAGS -L /foo -I/whatever
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-common-1" -precommands '
+export CFLAGS="-L /foo"
+' -commands "
+ensure-flags -language c -- -L /bar
+" -results "
+after-previous-flags CFLAGS -L /bar
+variable-is CFLAGS -L /foo -L /bar
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-common-2" -commands "
+ensure-flags -language c -- -L /bar -L /foo
+" -results "
+after-previous-flags CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-common-3" -precommands '
+export CFLAGS=""
+' -commands "
+ensure-flags -language c -- -L /bar -L /foo
+" -results "
+variable-is CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-common-4" -precommands '
+export CFLAGS=""
+' -commands "
+ensure-flags -language c -- -L /bar -L /foo
+ensure-flags -language c -- -L /bar -L /foo
+" -results "
+variable-is CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-multi-1" -commands "
+ensure-flags -language c,c++ foo
+" -results "
+after-previous-flags CFLAGS foo
+after-previous-flags CXXFLAGS foo
+no-change-except CFLAGS CXXFLAGS
+"
+
+
+runtest -name "ensure-flags-multi-2" -commands "
+ensure-flags -language c,c++ -- -L /foo -I/whatever
+" -results "
+after-previous-flags CFLAGS -L /foo -I/whatever
+after-previous-flags CXXFLAGS -L /foo -I/whatever
+no-change-except CFLAGS CXXFLAGS
+"
+
+
+runtest -name "ensure-flags-multi-3" -commands "
+ensure-flags -language c,c++,f,ld foo
+" -results "
+after-previous-flags CFLAGS foo
+after-previous-flags CXXFLAGS foo
+after-previous-flags FFLAGS foo
+after-previous-flags LDFLAGS foo
+no-change-except CFLAGS CXXFLAGS FFLAGS LDFLAGS
+"
+
+
+runtest -name "ensure-flags-multi-4" -commands "
+ensure-flags -language c,c++,f,ld -- -L /foo -I/whatever
+" -results "
+after-previous-flags CFLAGS -L /foo -I/whatever
+after-previous-flags CXXFLAGS -L /foo -I/whatever
+after-previous-flags FFLAGS -L /foo -I/whatever
+after-previous-flags LDFLAGS -L /foo -I/whatever
+no-change-except CFLAGS CXXFLAGS FFLAGS LDFLAGS
+"
+
+
+runtest -name "ensure-flags-flavour-1" -commands "
+ensure-flags -language c -flavour intel -- -L /foo -I/whatever
+" -results "
+after-previous-flags CFLAGS_INTEL -L /foo -I/whatever
+no-change-except CFLAGS_INTEL
+"
+
+
+runtest -name "ensure-flags-flavour-2" -commands "
+ensure-flags -language c -flavour intel,gnu -- -L /foo -I/whatever
+" -results "
+after-previous-flags CFLAGS_INTEL -L /foo -I/whatever
+after-previous-flags CFLAGS_GNU -L /foo -I/whatever
+no-change-except CFLAGS_INTEL CFLAGS_GNU
+"
+
+
+runtest -name "ensure-flags-flavour-3" -commands "
+ensure-flags -language c,c++,f,ld -flavour intel,gnu -- -L /foo -I/whatever
+" -results "
+after-previous-flags CFLAGS_INTEL -L /foo -I/whatever
+after-previous-flags CXXFLAGS_INTEL -L /foo -I/whatever
+after-previous-flags FFLAGS_INTEL -L /foo -I/whatever
+after-previous-flags LDFLAGS_INTEL -L /foo -I/whatever
+after-previous-flags CFLAGS_GNU -L /foo -I/whatever
+after-previous-flags CXXFLAGS_GNU -L /foo -I/whatever
+after-previous-flags FFLAGS_GNU -L /foo -I/whatever
+after-previous-flags LDFLAGS_GNU -L /foo -I/whatever
+no-change-except CFLAGS_INTEL CXXFLAGS_INTEL FFLAGS_INTEL LDFLAGS_INTEL CFLAGS_GNU CXXFLAGS_GNU FFLAGS_GNU LDFLAGS_GNU
+"
+
+
+runtest -name "ensure-flags-packaged-simple-1" -commands "
+ensure-flags -force packaged-envvars -language c foo
+" -results "
+after-previous-flags PACKAGE_CFLAGS foo
+no-change-except PACKAGE_CFLAGS
+"
+
+
+runtest -name "ensure-flags-packaged-flavour-1" -commands "
+ensure-flags -force packaged-envvars -language c -flavour intel -- -L /foo -I/whatever
+" -results "
+after-previous-flags PACKAGE_CFLAGS_INTEL -L /foo -I/whatever
+no-change-except PACKAGE_CFLAGS_INTEL
+"
+
+
+# -force prepend-flags
+
+runtest -name "ensure-flags-prepend-simple-1" -commands "
+ensure-flags -force prepend-flags -language c -- foo
+" -results "
+before-previous-flags CFLAGS foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-simple-2" -commands "
+ensure-flags -force prepend-flags -language c -- -L /foo -I/whatever
+" -results "
+before-previous-flags CFLAGS -L /foo -I/whatever
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-common-1" -precommands '
+export CFLAGS="-L /foo"
+' -commands "
+ensure-flags -force prepend-flags -language c -- -L /bar
+" -results "
+before-previous-flags CFLAGS -L /bar
+variable-is CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-common-2" -commands "
+ensure-flags -force prepend-flags -language c -- -L /bar -L /foo
+" -results "
+before-previous-flags CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-common-3" -precommands '
+export CFLAGS=""
+' -commands "
+ensure-flags -force prepend-flags -language c -- -L /bar -L /foo
+" -results "
+variable-is CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-common-4" -precommands '
+export CFLAGS=""
+' -commands "
+ensure-flags -force prepend-flags -language c -- -L /bar -L /foo
+ensure-flags -force prepend-flags -language c -- -L /bar -L /foo
+" -results "
+variable-is CFLAGS -L /bar -L /foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-multi-1" -commands "
+ensure-flags -force prepend-flags -language c,c++ foo
+" -results "
+before-previous-flags CFLAGS foo
+before-previous-flags CXXFLAGS foo
+no-change-except CFLAGS CXXFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-flavour-1" -commands "
+ensure-flags -force prepend-flags -language c,c++ -flavour intel,gnu -- -L /foo -I/whatever
+" -results "
+before-previous-flags CFLAGS_INTEL -L /foo -I/whatever
+before-previous-flags CXXFLAGS_INTEL -L /foo -I/whatever
+before-previous-flags CFLAGS_GNU -L /foo -I/whatever
+before-previous-flags CXXFLAGS_GNU -L /foo -I/whatever
+no-change-except CFLAGS_INTEL CXXFLAGS_INTEL CFLAGS_GNU CXXFLAGS_GNU
+"
+
+
+runtest -name "ensure-flags-prepend-packaged-simple-1" -commands "
+ensure-flags -force packaged-envvars,prepend-flags -language c foo
+" -results "
+before-previous-flags PACKAGE_CFLAGS foo
+no-change-except PACKAGE_CFLAGS
+"
+
+
+runtest -name "ensure-flags-prepend-packaged-flavour-1" -commands "
+ensure-flags -force packaged-envvars,prepend-flags -language c -flavour intel -- -L /foo -I/whatever
+" -results "
+before-previous-flags PACKAGE_CFLAGS_INTEL -L /foo -I/whatever
+no-change-except PACKAGE_CFLAGS_INTEL
+"
+
+
+
+
+
+
+# avoid-flags
+
+runtest -name "avoid-flags-empty-1" -commands "
+avoid-flags
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "avoid-flags-empty-2" -commands "
+avoid-flags -language c
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "avoid-flags-empty-3" -commands "
+avoid-flags foo
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "avoid-flags-simple-1" -commands "
+avoid-flags -language c -- -foo
+" -results "
+no-change
+"
+
+
+runtest -name "avoid-flags-simple-2" -precommands '
+export CFLAGS=""
+' -commands "
+avoid-flags -language c -- -foo
+" -results "
+no-change
+"
+
+
+runtest -name "avoid-flags-simple-3" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -fred
+" -results "
+no-change
+"
+
+
+runtest -name "avoid-flags-simple-4" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -foo
+" -results "
+variable-is CFLAGS -bar -baz
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-simple-5" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -bar
+" -results "
+variable-is CFLAGS -foo -baz
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-simple-6" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -baz
+" -results "
+variable-is CFLAGS -foo -bar
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-simple-7" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -foo -bar
+" -results "
+variable-is CFLAGS -baz
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-simple-8" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -bar -baz
+" -results "
+variable-is CFLAGS -foo
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-simple-9" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -foo -bar -baz
+" -results "
+variable-is CFLAGS ''
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-simple-10" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -foo -baz
+" -results "
+no-change
+"
+
+
+runtest -name "avoid-flags-simple-11" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -foo -bar -baz -fred
+" -results "
+no-change
+"
+
+
+runtest -name "avoid-flags-simple-12" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c -- -foo
+avoid-flags -language c -- -baz
+" -results "
+variable-is CFLAGS -bar
+no-change-except CFLAGS
+"
+
+runtest -name "avoid-flags-simple-13" -precommands '
+export CFLAGS="-foo -bar -baz -fred -barney -wilma"
+' -commands "
+avoid-flags -language c -- -bar -baz
+avoid-flags -language c -- -fred -barney
+" -results "
+variable-is CFLAGS -foo -wilma
+no-change-except CFLAGS
+"
+
+
+runtest -name "avoid-flags-multi-1" -precommands '
+export CFLAGS="-foo -bar -baz"
+export CXXFLAGS="-foo -bar -baz"
+' -commands "
+avoid-flags -language c,c++ -- -bar
+" -results "
+variable-is CFLAGS -foo -baz
+variable-is CXXFLAGS -foo -baz
+no-change-except CFLAGS CXXFLAGS
+"
+
+
+runtest -name "avoid-flags-flavour-multi-1" -precommands '
+export CFLAGS_INTEL="-foo1 -bar -baz1"
+export CXXFLAGS_INTEL="-foo2 -bar -baz2"
+export CFLAGS_GNU="-foo3 -bar -baz3"
+export CXXFLAGS_GNU="-foo4 -bar -baz4"
+' -commands "
+avoid-flags -language c,c++ -flavour intel,gnu -- -bar
+" -results "
+variable-is CFLAGS_INTEL -foo1 -baz1
+variable-is CXXFLAGS_INTEL -foo2 -baz2
+variable-is CFLAGS_GNU -foo3 -baz3
+variable-is CXXFLAGS_GNU -foo4 -baz4
+no-change-except CFLAGS_INTEL CXXFLAGS_INTEL CFLAGS_GNU CXXFLAGS_GNU
+"
+
+
+runtest -name "avoid-flags-packaged-flavour-multi-1" -precommands '
+export PACKAGE_CFLAGS_INTEL="-foo1 -bar -baz1"
+export PACKAGE_CXXFLAGS_INTEL="-foo2 -bar -baz2"
+export PACKAGE_CFLAGS_GNU="-foo3 -bar -baz3"
+export PACKAGE_CXXFLAGS_GNU="-foo4 -bar -baz4"
+' -commands "
+avoid-flags -force packaged-envvars -language c,c++ -flavour intel,gnu -- -bar
+" -results "
+variable-is PACKAGE_CFLAGS_INTEL -foo1 -baz1
+variable-is PACKAGE_CXXFLAGS_INTEL -foo2 -baz2
+variable-is PACKAGE_CFLAGS_GNU -foo3 -baz3
+variable-is PACKAGE_CXXFLAGS_GNU -foo4 -baz4
+no-change-except PACKAGE_CFLAGS_INTEL PACKAGE_CXXFLAGS_INTEL PACKAGE_CFLAGS_GNU PACKAGE_CXXFLAGS_GNU
+"
+
+
+runtest -name "avoid-flags-prepend-packaged-flavour-multi-1" -precommands '
+export PACKAGE_CFLAGS_INTEL="-foo1 -bar -baz1"
+export PACKAGE_CXXFLAGS_INTEL="-foo2 -bar -baz2"
+export PACKAGE_CFLAGS_GNU="-foo3 -bar -baz3"
+export PACKAGE_CXXFLAGS_GNU="-foo4 -bar -baz4"
+' -commands "
+avoid-flags -force packaged-envvars,prepend-flags -language c,c++ -flavour intel,gnu -- -bar
+" -results "
+previous-test
+"
+
+
+
+
+
+
+# ensure-flags followed by remove-flags (ie. check inverseness property)
+# set-flags followed by remove-flags (ie. check inverseness property)
+
+runtest -name "ensure-avoid-flags-inverse-1" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+ensure-flags -language c -- -fred -barney
+avoid-flags -language c -- -fred -barney
+" -results "
+no-change
+"
+
+
+runtest -name "ensure-avoid-flags-inverse-2" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+ensure-flags -language c -- -fred -barney
+avoid-flags -language c -- -foo -bar -baz
+" -results "
+variable-is CFLAGS -fred -barney
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-avoid-flags-inverse-1" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+set-flags -language c -- -fred -barney
+avoid-flags -language c -- -fred -barney
+" -results "
+variable-is CFLAGS ''
+no-change-except CFLAGS
+"
+
+
+runtest -name "set-avoid-flags-inverse-2" -precommands '
+export CFLAGS="-foo -bar -baz"
+' -commands "
+set-flags -language c -- -fred -barney
+avoid-flags -language c -- -foo -bar -baz
+" -results "
+variable-is CFLAGS -fred -barney
+no-change-except CFLAGS
+"
+
+
+

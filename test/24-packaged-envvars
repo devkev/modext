@@ -1,0 +1,89 @@
+#!/bin/bash
+
+
+unset bases
+declare -a bases
+
+function seenbase {
+	local i
+	for i in "${bases[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+
+DEFINITION_ONLY=y source "${BASH_SOURCE[0]%/*}"/20-simple-abstractions
+
+
+function packaged-envvars-suite {
+
+local -a envvars
+local envvar
+local cmdname
+
+while [ "x$1" != "x--" ]; do
+	envvars[${#envvars[@]}]="$1"
+	shift
+done
+shift
+
+cmdname="$1"
+shift
+
+local -a packageenvvars
+for i in "${envvars[@]}"; do
+	packageenvvars[${#packageenvvars[@]}]="PACKAGE_$i"
+done
+
+simple-abstraction-suite "${envvars[@]}" -- "$cmdname" "$@"
+simple-abstraction-suite "${envvars[@]}" -- "$cmdname" '-force "no-packaged-envvars"' "$@"
+simple-abstraction-suite "${packageenvvars[@]}" -- "$cmdname" '-force "packaged-envvars"' "$@"
+
+}
+
+packaged-envvars-suite PATH -- bin-dir
+
+packaged-envvars-suite MANPATH -- man-dir
+packaged-envvars-suite INFOPATH -- info-dir
+packaged-envvars-suite LD_PRELOAD -- preload-lib
+
+# these commands get partial coverage from these tests,
+# but they need other tests in other files to get full coverage.
+packaged-envvars-suite PATH -- wrapper-dir
+packaged-envvars-suite PKG_CONFIG_PATH -- pkgconfig-dir
+packaged-envvars-suite PKG_CONFIG_PATH -- pkg-config-dir
+
+
+packaged-envvars-suite C_INCLUDE_PATH -- include-dir -language c
+packaged-envvars-suite CPLUS_INCLUDE_PATH -- include-dir -language c++
+packaged-envvars-suite CPATH -- include-dir -language cpp
+packaged-envvars-suite CPATH -- include-dir -language c++cpp
+packaged-envvars-suite FPATH -- include-dir -language f
+packaged-envvars-suite FPATH -- include-dir -language f77
+packaged-envvars-suite FPATH -- include-dir -language f90
+packaged-envvars-suite LDPATH -- include-dir -language ld
+packaged-envvars-suite ARPATH -- include-dir -language ar
+packaged-envvars-suite ASPATH -- include-dir -language as
+packaged-envvars-suite PYTHONPATH -- include-dir -language py
+packaged-envvars-suite PERLLIB -- include-dir -language pl
+packaged-envvars-suite PERL5LIB -- include-dir -language pl5
+
+packaged-envvars-suite PYTHONPATH -- python-lib-dir
+packaged-envvars-suite PERLLIB -- perl-lib-dir
+packaged-envvars-suite PERL5LIB -- perl5-lib-dir
+
+packaged-envvars-suite C_INCLUDE_PATH CPLUS_INCLUDE_PATH CPATH -- include-dir -language c,c++
+
+
+#packaged-envvars-suite LIBRARY_PATH -- lib-dir '-force "library_path no-ld_run_path no-ld_library_path"'
+#packaged-envvars-suite LD_RUN_PATH -- lib-dir '-force "ld_run_path,no-library_path,no-ld_library_path"'
+#packaged-envvars-suite LD_LIBRARY_PATH -- lib-dir '-force ld_library_path,no-library_path,no-ld_run_path'
+packaged-envvars-suite LIBRARY_PATH -- lib-dir '-defaults "library_path no-ld_run_path no-ld_library_path"'
+packaged-envvars-suite LD_RUN_PATH -- lib-dir '-defaults "ld_run_path,no-library_path,no-ld_library_path"'
+packaged-envvars-suite LD_LIBRARY_PATH -- lib-dir '-defaults ld_library_path,no-library_path,no-ld_run_path'
+
+
+

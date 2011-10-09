@@ -1,0 +1,19 @@
+#!/bin/bash
+
+
+runtest -name "1" -commands '
+break
+' -results '
+expect-audit-succeed
+expect-load-fail
+no-change-at-all
+'
+
+runtest -name "2" -commands '
+setenv FOOBAR baz
+break
+' -results '
+previous-test
+'
+
+

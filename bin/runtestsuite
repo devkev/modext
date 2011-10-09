@@ -1,0 +1,1773 @@
+#!/bin/bash
+
+
+extensionsbase="/opt/Modules/extensions/0.9"
+testbase="$extensionsbase/test"
+resultsbase="${RESULTS:-$testbase/RESULTS}"
+
+if [ "x$thistestbasis" = "x" ]; then
+	export thistestbasis="$(date '+%Y-%m-%d-%H-%M-%S')-$$"
+
+	thistestbase="$resultsbase/$thistestbasis"
+	mkdir -p "$thistestbase"
+
+	"$0" "$@" 2>&1 | tee "$thistestbase"/log
+	exit $?
+fi
+
+#unexport thistestbasis
+thistestbasis_="$thistestbasis"
+unset thistestbasis
+thistestbasis="$thistestbasis_"
+unset thistestbasis_
+
+thistestbase="$resultsbase/$thistestbasis"
+
+
+
+
+verbose=n
+veryverbose=n
+keep=n
+numjobs=1
+
+
+declare -a testsuites
+if [ $# -gt 0 ]; then
+	for i; do
+		case "$i" in
+			-vv|-veryverbose)
+				verbose=y
+				veryverbose=y
+				;;
+			-v|-verbose)
+				if [ "x$verbose" = "xy" ]; then
+					veryverbose=y
+				else
+					verbose=y
+				fi
+				;;
+			-k|-keep)
+				keep=y
+				;;
+			-j)
+				echo "Error: for now, no space is allowed between -j and the number of tasks"
+				exit 1
+				#numjobs=
+				;;
+			-j*)
+				numjobs="${i#-j}"
+				if [ "x$numjobs" = "x" ]; then
+					numjobs=1
+				fi
+				;;
+			*)
+				testsuites[${#testsuites[@]}]="$i"
+				;;
+		esac
+	done
+fi
+
+currentbase="$thistestbase/current"
+failedbase="$thistestbase/FAILED"
+keepbase="$thistestbase/KEEP"
+mkdir -p "$currentbase" "$failedbase"
+( cd "$resultsbase" && rm -f LATEST && ln -s "$thistestbasis" LATEST )
+if [ "x$keep" = "xy" ]; then
+	mkdir -p "$keepbase"
+fi
+
+if [ "${#testsuites[@]}" -eq 0 ]; then
+	for i in $testbase/*; do
+		if [ -f "$i" -a -r "$i" ]; then
+			if [ "x$(file -b "$i")" = "xBourne-Again shell script text executable" ]; then
+				case "$i" in
+					*~)
+						;;
+					*)
+						testsuites[${#testsuites[@]}]="${i##*/}"
+						;;
+				esac
+			fi
+		fi
+	done
+fi
+
+
+
+
+
+function getpriorenv {
+	echo "$priorenv" | while read line; do
+		case "$line" in
+			$1=*)
+				echo "$line" | sed -e 's/^'"$1"'=//'
+				return 0
+				;;
+		esac
+	done
+	echo ""
+	return 1
+}
+
+function setup_flag {
+	local type name value
+	type="$1"
+	name="$2"
+	value="$3"
+	if [ "x$type" = "x" ]; then
+		echo "local ${name} ; ${name}=\"${value}\""
+	else
+		echo "local ${type}_${name} ; ${type}_${name}=\"${value}\" ; local ${name} ; ${name}=\"\$${type}_${name}\""
+	fi
+}
+
+function setup_flag_default {
+	setup_flag default "$1" "$2"
+}
+
+function setup_seen {
+	setup_flag "" "seen_$1" "n"
+}
+
+function seen_test_before {
+	local i
+	for i in "${test_name[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+function prev_test_index {
+	local i
+	local j
+	j=0
+	for i in "${test_name[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			echo "$j"
+			return
+		fi
+		j=$(( $j + 1 ))
+	done
+	echo "-1"
+}
+
+function quote_single_quotes {
+	sed -e 's/\\/\\\\/g' -e 's/'"'"'/\\'"'"'/g' <<< "$*"
+}
+
+function do_eval_assign {
+	local name
+	local val
+	name="$1"
+	shift
+	val="$*"
+	echo "$name='$(quote_single_quotes "$val")'"
+}
+
+
+function resolve-previous-results {
+	local result
+	local first
+	local prevtest
+	local prevtesti
+	local ex
+	local n
+
+	n="$1"
+	shift
+
+	while read result; do
+		while [ "x$result" != "x${result% }" ]; do
+			result="${result% }"
+		done
+		while [ "x$result" != "x${result# }" ]; do
+			result="${result# }"
+		done
+		if [ "x$result" != "x" ]; then
+			case "$result" in
+				previous-test|previous-tests|prior-test|prior-tests|existing-test|existing-tests)
+					if [ "$n" -gt "0" ]; then
+						prevtesti="$(( $n -1 ))"
+						resolve-previous-results "$prevtesti" "${test_results[$prevtesti]}"
+					else
+						echo "$result"
+					fi
+					;;
+				previous-test\ *|previous-tests\ *|prior-test\ *|prior-tests\ *|existing-test\ *|existing-tests\ *)
+					first=y
+					for prevtest in $result; do
+						if [ "x$first" = "xy" ]; then
+							first=n
+						else
+							# recurse, yeck
+							prevtesti="$(prev_test_index "$prevtest")"
+							if [ "x$prevtesti" != "x-1" ]; then
+								resolve-previous-results "$prevtesti" "${test_results[$prevtesti]}"
+							else
+								prevtesti="$(prev_test_index "$testsuite-$prevtest")"
+								if [ "x$prevtesti" != "x-1" ]; then
+									resolve-previous-results "$prevtesti" "${test_results[$prevtesti]}"
+								else
+									echo "$result"
+								fi
+							fi
+						fi
+					done
+					;;
+				*)
+					echo "$result"
+					;;
+			esac
+		fi
+	done <<< "$*"
+}
+
+
+
+# actually just reads it in, do_run_test actually runs the test
+function runtest {
+	local i
+
+	numtests="${numtests:-0}"
+
+	eval "$(setup_flag_default name test-$numtests)"
+	eval "$(setup_flag_default package package)"
+	eval "$(setup_flag_default version version)"
+	eval "$(setup_flag_default expectfail n)"
+	eval "$(setup_flag_default precommands :)"
+	eval "$(setup_flag_default extraloadedmodules "")"
+	eval "$(setup_flag_default extranonloadedmodules "")"
+
+	local _mode
+	_mode=""
+
+	#echo "debug: rawresults (-3): \"${results}\"" 1>&2
+
+	for i; do
+		case "$i" in
+			-expectfail)
+				expectfail=y
+				;;
+			-*)
+				_mode="${i#-}"
+				;;
+			*)
+				local ${_mode}
+				#eval "$(echo "${_mode}=\"$i\"")"
+				#eval "$(echo "${_mode}='$i'")"
+				#echo "debug: ${_mode}='$i'" 1>&2
+				eval "${_mode}='$i'"
+				;;
+		esac
+	done
+
+	#echo "debug: rawresults (-2): \"${results}\"" 1>&2
+
+	thisname="$name"
+	name="$testsuite-$name"
+
+	numtests="$(( $numtests + 1 ))"
+
+	#echo "numtests=\"$numtests\""
+	#echo "name=\"$name\""
+	#echo "extramodules=\"$extramodules\""
+	#echo "commands=\"$commands\""
+	#echo "results=\"$results\""
+	#echo "modulename=\"$modulename\""
+	#echo "expectfail=\"$expectfail\""
+	#echo "extraloadedmodules=\"$extraloadedmodules\""
+	#echo "extranonloadedmodules=\"$extranonloadedmodules\""
+
+	modulename="$package/$version"
+
+
+	# resolve previous-tests
+	orig_results="$results"
+	results="$(resolve-previous-results "$(( $numtests - 1 ))" "$orig_results")"
+
+
+	test_name+=("$name")
+	test_thisname+=("$thisname")
+	test_testsuite+=("$testsuite")
+	test_commands+=("$commands")
+	test_results+=("$results")
+	test_expectfail+=("$expectfail")
+	test_modulename+=("$modulename")
+	test_precommands+=("$precommands")
+	test_extraloadedmodules+=("$extraloadedmodules")
+	test_extranonloadedmodules+=("$extranonloadedmodules")
+
+	case "$numtests" in
+		*00)
+			echo -ne "$numtests\rReading tests: "
+			;;
+	esac
+}
+
+
+
+
+function parse-results {
+	local result
+	local first
+	local prevtest
+	local prevtesti
+	local ex
+	local n
+
+	n="$1"
+	shift
+
+	while read result; do
+		while [ "x$result" != "x${result% }" ]; do
+			result="${result% }"
+		done
+		while [ "x$result" != "x${result# }" ]; do
+			result="${result# }"
+		done
+		if [ "x$result" != "x" ]; then
+			case "$result" in
+				\#*)
+					;;
+				no-change)
+					echo 'check_no_change=y'
+					;;
+				no-change-at-all)
+					echo 'check_no_change=y'
+					echo 'unset no_change_exceptions'
+					echo 'declare -a no_change_exceptions'
+					echo 'no_change_exceptions=()'
+					;;
+				no-change-except\ *)
+					echo 'check_no_change=y'
+					first=y
+					for ex in $result; do
+						if [ "x$first" = "xy" ]; then
+							first=n
+						else
+							# FIXME: quote '
+							#echo 'no_change_exceptions[${#no_change_exceptions[@]}]="'"$ex"'"'
+							do_eval_assign 'no_change_exceptions[${#no_change_exceptions[@]}]' "$ex"
+						fi
+					done
+					;;
+				expect-noisy-module)
+					echo 'expect_noisy_module=y'
+					;;
+				expect-quiet-module)
+					echo 'expect_noisy_module=n'
+					;;
+				*)
+					# FIXME: quote '
+					#echo 'results[${#results[@]}]="'"$result"'"'
+					do_eval_assign 'results[${#results[@]}]' "$result"
+					#echo "${#results[@]}: $result"
+					case "$result" in
+						expect-audit-fail)
+							echo 'expect_audit_fail=y'
+							;;
+						expect-load-fail)
+							echo 'expect_load_fail=y'
+							;;
+						module-neither-loaded-nor-not-loaded)
+							echo 'expect_load_fail=neither'
+							;;
+					esac
+					;;
+			esac
+		fi
+	done <<< "$*"
+}
+
+
+function do_run_test {
+	local testnum
+	testnum="$1"
+
+	local ftestnum
+	printf -v ftestnum "%0${#numtests}d" "$testnum"
+
+
+	local name
+	local thisname
+	local testsuite
+	local commands
+	local results
+	local expectfail
+	local modulename
+	local precommands
+	local extraloadedmodules
+	local extranonloadedmodules
+
+	name="${test_name[$testnum]}"
+	thisname="${test_thisname[$testnum]}"
+	testsuite="${test_testsuite[$testnum]}"
+	commands="${test_commands[$testnum]}"
+	results="${test_results[$testnum]}"
+	expectfail="${test_expectfail[$testnum]}"
+	modulename="${test_modulename[$testnum]}"
+	precommands="${test_precommands[$testnum]}"
+	extraloadedmodules="${test_extraloadedmodules[$testnum]}"
+	extranonloadedmodules="${test_extranonloadedmodules[$testnum]}"
+
+
+	#echo "numtests=\"$numtests\""
+	#echo "testnum=\"$testnum\""
+	#echo "ftestnum=\"$ftestnum\""
+	#echo "name=\"$name\""
+	#echo "thisname=\"$thisname\""
+	#echo "testsuite=\"$testsuite\""
+	#echo "commands=\"$commands\""
+	#echo "results=\"$results\""
+	#echo "expectfail=\"$expectfail\""
+	#echo "modulename=\"$modulename\""
+	#echo "precommands=\"$precommands\""
+	#echo "extraloadedmodules=\"$extraloadedmodules\""
+	#echo "extranonloadedmodules=\"$extranonloadedmodules\""
+
+
+	local extramod
+	for extramod in $extraloadedmodules $extranonloadedmodules; do
+		case "$extramod" in
+			*/*)
+				mkdir -p "$currentbase/$ftestnum/${extramod%/*}"
+				;;
+			*)
+				mkdir -p "$currentbase/$ftestnum"
+				;;
+		esac
+		cat > "$currentbase/$ftestnum/$extramod" <<-EOF
+		#%Module
+		# fake empty module
+		EOF
+	done
+
+	local modulefile
+	local modulebase
+	modulefile="$currentbase/$ftestnum/$modulename"
+	mkdir -p "${modulefile%/*}"
+	modulebase="$currentbase/$ftestnum/${modulename%%/*}"
+	#echo "$modulebase"
+
+	#cat > "$modulefile" <<-EOF
+	##%Module
+	#source $extensionsbase/extensions.tcl
+	## $name
+	## extramodules="$extramodules"
+	## extraloadedmodules="$extraloadedmodules"
+	## extranonloadedmodules="$extranonloadedmodules"
+	#$commands
+	#EOF
+
+	cat > "$modulefile" <<-EOF
+	#%Module
+	source $extensionsbase/extensions.tcl
+	# $name
+	# extraloadedmodules="$extraloadedmodules"
+	# extranonloadedmodules="$extranonloadedmodules"
+	$commands
+	EOF
+
+	#echo -n "$numtests: $testsuite: $thisname: "
+	local msg
+	msg="$ftestnum: $testsuite: $thisname: "
+
+	local output
+	local theseresults
+	local testresults
+	local fulltestresults
+	testresults=""
+	fulltestresults=""
+
+	# run audit-modules over the module also and check it that way
+	# (sorry about the repeated code)
+	auditrc="0"
+	export auditrc
+	if [ "x$auditmodules" != "x" ]; then
+		auditresults="$( (
+			exec 2>&1
+			eval "$precommands"
+			export MODULEPATH="$currentbase/$ftestnum:$MODULEPATH"
+			module load $extramodules $extraloadedmodules && $auditmodules --no-perms --no-help "$modulename"
+		) )"
+		auditrc="$?"
+	fi
+
+
+	local priorenv
+	# Assumes no embedded newlines, which is a problem...
+	#priorenv="$(env | sed -e '/^[^[:space:]]\+=()\s{\s/,/^}$/d')"
+	#priorenv="$( ( env | sed -e '/^[^[:space:]]\+=()\s{\s/,/^}$/d' ) )"
+	priorenv="$( ( eval "$precommands" ; env | sed -e '/^[^[:space:]]\+=()\s{\s/,/^}$/d' ) )"
+	#echo "priorenv=\"$priorenv\""
+	#echo "prior path = \"$(getpriorenv PATH)\""
+
+	local stdout
+	stdout="$currentbase/$ftestnum/stdout"
+	local stderr
+	stderr="$currentbase/$ftestnum/stderr"
+
+	(
+		exec 1> "$stdout"
+		exec 2> "$stderr"
+		eval "$precommands"
+		export MODULEPATH="$currentbase/$ftestnum:$MODULEPATH"
+		module load $extramodules $extraloadedmodules && "$modulecmd" bash load "$modulename"
+	)
+	loadrc="$?"
+	export loadrc
+
+	output="$(cat "$stdout")"
+	errors="$(cat "$stderr")"
+
+	noisymodule="n"
+	export noisymodule
+
+	# module load always returns success (0).
+	# $loadrc should be set to 1 if $output contains a line that matches:
+	# /^package\/version([0-9]\+):ERROR:[0-9]\+:/
+	if grep -s -q '^package\/version([0-9]\+):ERROR:[0-9]\+:' <<< "${errors}"; then
+		loadrc="1"
+	elif grep -s -q '^.*([0-9]\+):FATAL:[0-9]\+:' <<< "${errors}"; then
+		loadrc="1"
+	fi
+
+	if [ "x$(grep -v '^\(package\/version([0-9]\+):ERROR:[0-9]\+:\|.*([0-9]\+):FATAL:[0-9]\+:\|[ 	]*$\)' <<< "$errors")" != "x" ]; then
+		noisymodule="y"
+	fi
+
+	#echo "output=\"$output\""
+	if [ "x$output" != "x" -a "$loadrc" -ne 0 ]; then
+		if [ "x$testresults" = "x" ]; then
+			testresults="${output}"
+		else
+			testresults="${testresults}
+${output}"
+		fi
+	fi
+	if [ "x$output" != "x" ]; then
+		if [ "x$fulltestresults" = "x" ]; then
+			fulltestresults="--------- stdout ---------
+${output}
+--------------------------"
+		else
+			fulltestresults="${fulltestresults}
+--------- stdout ---------
+${output}
+--------------------------"
+		fi
+	fi
+
+	#echo "errors=\"$errors\""
+	if [ "x$errors" != "x" -a "$loadrc" -ne 0 ]; then
+		if [ "x$testresults" = "x" ]; then
+			testresults="${errors}"
+		else
+			testresults="${testresults}
+${errors}"
+		fi
+	fi
+	if [ "x$errors" != "x" ]; then
+		if [ "x$fulltestresults" = "x" ]; then
+			fulltestresults="--------- stderr ---------
+${errors}
+--------------------------"
+		else
+			fulltestresults="${fulltestresults}
+--------- stderr ---------
+${errors}
+--------------------------"
+		fi
+	fi
+
+	local fixedoutput
+	#fixedoutput="$(env -i bash -c "$output env" | grep -v '^\(PWD\|SHLVL\|_\)=' | grep -v '^\(_LMFILES_\|LOADEDMODULES\)=')"
+	#fixedoutput="$(env -i bash -xc "$output" 2>&1 | sed -e 's/^+\s\+//' -e '/^export\s/d' -e '/^\(_LMFILES_\|LOADEDMODULES\)=/d')"
+	fixedoutput="$(env -i bash -xc "$output" 2>&1 | sed -e 's/^+\s\+//' -e '/^export\s/d' -e '/^\(_LMFILES_\)=/d' -e 's/^\([A-Za-z0-9_]\+=\)'"'"'\(.*\)'"'"'$/\1\2/')"
+	#echo "fixedoutput=\"$fixedoutput\""
+
+	if [ "x$fixedoutput" != "x" ]; then
+		if [ "x$fulltestresults" = "x" ]; then
+			fulltestresults="--------- fixed stdout ---------
+${fixedoutput}
+-------------------------------"
+		else
+			fulltestresults="${fulltestresults}
+--------- fixed stdout ---------
+${fixedoutput}
+-------------------------------"
+		fi
+	fi
+
+	local expect_audit_fail
+	local expect_load_fail
+	expect_audit_fail=n
+	expect_load_fail=n
+
+	local check_no_change
+	check_no_change=n
+	local no_change_exceptions
+	declare -a no_change_exceptions
+	no_change_exceptions=(LOADEDMODULES _LMFILES_ PACKAGE_BASE PACKAGE_ROOT PACKAGE_VERSION)
+
+	local expect_noisy_module
+	expect_noisy_module=n
+
+	#echo "debug: rawresults (-1): \"${results}\"" 1>&2
+
+	local rawresults
+	rawresults="$results"
+	unset results
+	local -a results
+
+	results[${#results[@]}]="check-for-strange-lines"
+
+	#echo "debug: rawresults: \"${rawresults}\"" 1>&2
+
+	#echo "---------------"
+	#echo "$(parse-results "$rawresults")"
+	#parse-results "$rawresults"
+	eval "$(parse-results "$(( ${#test_results[@]} - 1 ))" "$rawresults")"
+
+	#echo "==============="
+
+	#while read result; do
+	#	while [ "x$result" != "x${result% }" ]; do
+	#		result="${result% }"
+	#	done
+	#	while [ "x$result" != "x${result# }" ]; do
+	#		result="${result# }"
+	#	done
+	#	if [ "x$result" != "x" ]; then
+	#		case "$result" in
+	#			\#*)
+	#				;;
+	#			previous-test|previous-tests|prior-test|prior-tests|existing-test|existing-tests)
+	#				local first
+	#				local prevtest
+	#				first=y
+	#				for prevtest in $result; do
+	#					if [ "x$first" = "xy" ]; then
+	#						first=n
+	#					else
+	#						# recurse, yeck
+	#						:
+	#					fi
+	#				done
+	#				;;
+	#			*)
+	#				echo 'results[${#results[@]}]="'"$result"'"'
+	#				results[${#results[@]}]="$result"
+	#				#echo "${#results[@]}: $result"
+	#				case "$result" in
+	#					expect-audit-fail)
+	#						echo expect_audit_fail=y
+	#						expect_audit_fail=y
+	#						;;
+	#					expect-load-fail)
+	#						echo expect_load_fail=y
+	#						expect_load_fail=y
+	#						;;
+	#				esac
+	#				;;
+	#		esac
+	#	fi
+	#done <<< "$rawresults"
+	#echo "---------------"
+
+	if [ "x$expect_audit_fail" = "xn" ]; then
+		results[${#results[@]}]="expect-audit-success"
+		if [ "x$auditresults" != "x" -a \( "x$verbose" = "xy" -o "$auditrc" -ne 0 \) ]; then
+			if [ "x$testresults" = "x" ]; then
+				testresults="${auditresults}"
+			else
+				testresults="${testresults}
+${auditresults}"
+			fi
+		fi
+	else
+		if [ "x$auditresults" != "x" -a \( "x$verbose" = "xy" -o "$auditrc" -eq 0 \) ]; then
+			if [ "x$testresults" = "x" ]; then
+				testresults="${auditresults}"
+			else
+				testresults="${testresults}
+${auditresults}"
+			fi
+		fi
+	fi
+	if [ "x$expect_load_fail" = "xn" ]; then
+		results[${#results[@]}]="expect-load-success"
+	fi
+	if [ "x$check_no_change" = "xy" ]; then
+		results[${#results[@]}]="check-no-change"
+	fi
+	if [ "x$expect_noisy_module" = "xn" ]; then
+		results[${#results[@]}]="expect-quiet-module"
+	else
+		results[${#results[@]}]="expect-noisy-module"
+	fi
+
+
+	if [ "x$auditresults" != "x" ]; then
+		if [ "x$fulltestresults" = "x" ]; then
+			fulltestresults="${auditresults}"
+		else
+			fulltestresults="${fulltestresults}
+${auditresults}"
+		fi
+	fi
+
+	#echo "debug: num results: ${#results[@]}" 1>&2
+	#echo "debug: results: \"${results[@]}\"" 1>&2
+
+	rc=""
+	for result in "${results[@]}"; do
+	#local k
+	#k=0
+	#while [ "$k" -lt "${#results[@]}" ]; do
+	#	result="${results[$k]}"
+		#exec 2>&1 ; rc=0
+		#echo "debug: \$fixedoutput='$fixedoutput'" 1>&2
+		#echo "debug: \$result='$result'" 1>&2
+		theseresults="$(echo "$fixedoutput" | $result 2>&1)"
+		rc="$?"
+		if [ "x$theseresults" != "x" ]; then
+			if [ "x$testresults" = "x" ]; then
+				testresults="${theseresults}"
+			else
+				testresults="${testresults}
+${theseresults}"
+			fi
+		fi
+		if [ "x$theseresults" != "x" ]; then
+			if [ "x$fulltestresults" = "x" ]; then
+				fulltestresults="${theseresults}"
+			else
+				fulltestresults="${fulltestresults}
+${theseresults}"
+			fi
+		fi
+		if [ "$rc" -ne "0" ]; then
+			break
+		fi
+		#k="$(( $k + 1 ))"
+	done
+	#echo "rc=$rc"
+
+	if [ "x$expectfail" != "xn" ]; then
+		# this test is supposed to fail
+		if [ "x$rc" != "x" ]; then
+			if [ "$rc" -ne "0" ]; then
+				# it has failed: great
+				rc=0
+			else
+				# it has succeeded: oh dear
+				rc=1
+				result="test succeeded when it was expected to fail"
+			fi
+		else
+			# it has succeeded: oh dear
+			rc=1
+			result="test succeeded when it was expected to fail"
+		fi
+	fi
+
+	if [ "x$rc" != "x" ]; then
+		if [ "$rc" -ne "0" ]; then
+			msg="${msg}FAILED ($result)\n"
+			mkdir -p "$failedbase"
+			mv "$currentbase/$ftestnum" "$failedbase/$ftestnum-$testsuite-$name"
+			echo "$fulltestresults" > "$failedbase/$ftestnum-$testsuite-$name/log"
+			if [ "x$verbose" = "xy" ]; then
+				msg="${msg}$testresults\n"
+				msg="${msg}\n"
+			fi
+			#numfailed="$(( $numfailed + 1 ))"
+			echo -ne "$msg"
+			return 1
+		fi
+	fi
+
+	## Now can check that audit and load worked - if either should have failed,
+	## then expect-load-fail and/or expect-audit-fail should be used in
+	## $results, which will catch it just above.
+	#if [ "x$auditrc" != "x" ]; then
+	#	if [ "$auditrc" -ne 0 ]; then
+	#		echo "FAILED (export MODULEPATH="$currentbase:$MODULEPATH" ; module load $extramodules && $auditmodules --no-perms "$modulename")"
+	#		mkdir -p "$failedbase/$ftestnum-$testsuite-$name"
+	#		mv "$modulebase" "$failedbase/$ftestnum-$testsuite-$name"
+	#		echo "$testresults" > "$failedbase/$ftestnum-$testsuite-$name/log"
+	#		numfailed="$(( $numfailed + 1 ))"
+	#		return 1
+	#	fi
+	#fi
+	#if [ "$loadrc" -ne 0 ]; then
+	#	echo "FAILED (export MODULEPATH="$currentbase:$MODULEPATH" ; module load $extramodules && "$modulecmd" bash load "$modulename")"
+	#	mkdir -p "$failedbase/$ftestnum-$testsuite-$name"
+	#	mv "$modulebase" "$failedbase/$ftestnum-$testsuite-$name"
+	#	echo "$testresults" > "$failedbase/$ftestnum-$testsuite-$name/log"
+	#	numfailed="$(( $numfailed + 1 ))"
+	#	return 1
+	#fi
+
+	msg="${msg}PASSED\n"
+	if [ "x$verbose" = "xy" -a "x$veryverbose" = "xy" ]; then
+		msg="${msg}$testresults\n"
+		msg="${msg}\n"
+	fi
+	if [ "x$keep" = "xy" ]; then
+		mkdir -p "$keepbase"
+		mv "$currentbase/$ftestnum" "$keepbase/$ftestnum-$testsuite-$name"
+		echo "$fulltestresults" > "$keepbase/$ftestnum-$testsuite-$name/log"
+	else
+		rm "$stdout" "$stderr"
+		rm -rf "$modulebase"
+		for extramod in $extraloadedmodules $extranonloadedmodules; do
+			case "$extramod" in
+				*/*)
+					rm -rf "$currentbase/$ftestnum/${extramod%/*}"
+					;;
+				*)
+					rm -f "$currentbase/$ftestnum/$extramod"
+					;;
+			esac
+		done
+	fi
+	[ -d "$currentbase/$ftestnum" ] && rmdir --ignore-fail-on-non-empty "$currentbase/$ftestnum"
+	#numpassed="$(( $numpassed + 1 ))"
+	echo -ne "$msg"
+	return 0
+}
+
+
+function do_run_tests {
+	local stride
+	local offset
+	stride="$1"
+	offset="$2"
+
+	local i
+
+	for (( i=$offset ; i < $numtests ; i+=$stride )); do
+		do_run_test "$i"
+	done
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function force-fail {
+	echo "${testname:-${FUNCNAME[0]}}: unilaterally forcing test failure"
+	return 1
+}
+
+
+function force-failure {
+	testname="${FUNCNAME[0]}" force-fail
+}
+
+
+
+function set-seen-if {
+	local name x
+	name="$1"
+	x="$2"
+	echo "if [ \"x$x\" = \"x$name\" ]; then seen_${name}=y; fi"
+}
+
+function set-if-not-seen {
+	local name var
+	name="$1"
+	var="$2"
+	echo "if [ \"x$seen_${name}\" != \"xy\" ]; then $var=\"$name\"; fi"
+}
+
+
+function check-for-strange-lines {
+	local i j
+	local line
+	local exempt
+	local changed
+	declare -a changed
+	local oldval
+	declare -a oldval
+	local newval
+	declare -a newval
+
+	while read line; do
+		#echo "testing line=\"$line\""
+		case "$line" in
+			*=*)
+				;;
+			"unset "*)
+				;;
+			"")
+				;;
+			*)
+				echo "${testname:-${FUNCNAME[0]}}: STRANGE LINE: \"$line\""
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: no strange lines"
+	return 0
+}
+
+
+function check-no-change {
+	#declare -a exceptions
+	#local exceptions
+	local i j
+	local line
+	local exempt
+	local changed
+	declare -a changed
+	local oldval
+	declare -a oldval
+	local newval
+	declare -a newval
+
+	#echo "Checking for no change, exceptions: ${no_change_exceptions[@]}"
+
+	#local required_exceptions
+	#required_exceptions="LOADEDMODULES _LMFILES_ PACKAGE_BASE PACKAGE_ROOT PACKAGE_VERSION"
+
+	#for j in $required_exceptions; do
+	#	eval "$(setup_seen "$j")"
+	#done
+
+	#for i; do
+	#	exceptions[${#exceptions[@]}]="$i"
+	#	for j in $required_exceptions; do
+	#		eval "$(set-seen-if "$j" '$i')"
+	#	done
+	#done
+	#for j in $required_exceptions; do
+	#	eval "$(set-if-not-seen "$j" 'exceptions[${#exceptions[@]}]')"
+	#done
+
+	#echo "------------"
+	#echo "exceptions:"
+	#for i in "${exceptions[@]}"; do
+	#	echo "$i"
+	#done
+	#echo "------------"
+	#echo "------------"
+	#echo "priorenv:"
+	#echo "$priorenv"
+	#echo "------------"
+	#echo "------------"
+	#echo "thisenv:"
+	#cat
+	#echo "------------"
+
+	while read line; do
+		#echo "testing line=\"$line\""
+		case "$line" in
+			*=*)
+				varname=$(sed -e 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*$/\1/' <<<"$line")
+				#echo "varname=\"$varname\""
+				exempt=n
+				#for i in "${exceptions[@]}"; do
+				for i in "${no_change_exceptions[@]}"; do
+					if [ "x$varname" = "x$i" ]; then
+						#echo "$varname is exempt, skipping"
+						exempt=y
+						break
+					fi
+				done
+				if [ "x$exempt" = "xn" ]; then
+					#echo "previously \"$(getpriorenv "$varname")\""
+					if [ "x$line" != "x$varname=$(getpriorenv "$varname")" ]; then
+						#changed[${#changed[@]}]="$varname"
+						changed+=("$varname")
+						oldval+=("$varname=$(getpriorenv "$varname")")
+						newval+=("$line")
+					fi
+				fi
+				;;
+			*)
+				echo "${testname:-${FUNCNAME[0]}}: strange line: \"$line\""
+				;;
+		esac
+	done
+	if [ "${#changed[@]}" -eq 0 ]; then
+		echo "${testname:-${FUNCNAME[0]}}: no variables changed"
+		return 0
+	else
+		echo "${testname:-${FUNCNAME[0]}}: the following variables changed: ${changed[@]}"
+		for i in "${!changed[@]}"; do
+			echo "${testname:-${FUNCNAME[0]}}: -${oldval[$i]}"
+			echo "${testname:-${FUNCNAME[0]}}: +${newval[$i]}"
+		done
+		return 1
+	fi
+}
+
+
+function previous-test {
+	# only fall through to here if parseresults cannot find the previous test
+	echo "${testname:-${FUNCNAME[0]}}: no such previous test"
+	return 1
+}
+
+function previous-tests {
+	testname="${FUNCNAME[0]}" previous-test "$@"
+}
+
+function prior-test {
+	testname="${FUNCNAME[0]}" previous-test "$@"
+}
+
+function existing-test {
+	testname="${FUNCNAME[0]}" previous-test "$@"
+}
+
+function prior-tests {
+	testname="${FUNCNAME[0]}" previous-test "$@"
+}
+
+function existing-tests {
+	testname="${FUNCNAME[0]}" previous-test "$@"
+}
+
+
+function expect-audit-fail {
+	if [ "x$auditrc" = "x" ]; then
+		return 0
+	fi
+	if [ "$auditrc" -ne 0 ]; then
+		echo "${testname:-${FUNCNAME[0]}}: module-audit failed (exit code $auditrc), as expected"
+		return 0
+	else
+		echo "${testname:-${FUNCNAME[0]}}: module-audit SUCCEEDED, which was NOT expected"
+		return 1
+	fi
+}
+
+function expect-audit-succeed {
+	if [ "x$auditrc" = "x" ]; then
+		return 0
+	fi
+	if [ "$auditrc" -eq 0 ]; then
+		echo "${testname:-${FUNCNAME[0]}}: module-audit succeeded, as expected"
+		return 0
+	else
+		echo "${testname:-${FUNCNAME[0]}}: module-audit FAILED (exit code $auditrc), which was NOT expected"
+		return 1
+	fi
+}
+
+function expect-audit-success {
+	testname="${FUNCNAME[0]}" expect-audit-succeed "$@"
+}
+
+function expect-load-fail {
+	#if [ "x$auditrc" != "x" ]; then
+	#	if [ "$auditrc" -ne 0 ]; then
+	#		echo "expect-load-fail: module load failed by virtue of never being attempted, since audit-module failed (exit code $auditrc): as expected"
+	#		return 0
+	#	fi
+	#fi
+	if [ "$loadrc" -ne 0 ]; then
+		echo "${testname:-${FUNCNAME[0]}}: module load failed (exit code $loadrc), as expected"
+		return 0
+	else
+		if module-not-loaded; then
+			echo "${testname:-${FUNCNAME[0]}}: module load failed (not present after load), as expected"
+			return 0
+		else
+			echo "${testname:-${FUNCNAME[0]}}: module load SUCCEEDED, which was NOT expected"
+			return 1
+		fi
+	fi
+}
+
+function expect-load-succeed {
+	#if [ "x$auditrc" != "x" ]; then
+	#	if [ "$auditrc" -ne 0 ]; then
+	#		echo "expect-load-succeed: module load FAILED by virtue of never being attempted, since audit-module failed (exit code $auditrc): which was NOT expected"
+	#		return 1
+	#	fi
+	#fi
+	if [ "$loadrc" -eq 0 ]; then
+		if module-loaded; then
+			echo "${testname:-${FUNCNAME[0]}}: module load succeeded, as expected"
+			return 0
+		else
+			echo "${testname:-${FUNCNAME[0]}}: module load FAILED (not present after load), which was NOT expected"
+			return 1
+		fi
+	else
+		echo "${testname:-${FUNCNAME[0]}}: module load FAILED (exit code $loadrc), which was NOT expected"
+		return 1
+	fi
+}
+
+function expect-load-success {
+	testname="${FUNCNAME[0]}" expect-load-succeed "$@"
+}
+
+
+function expect-noisy-module {
+	if [ "x$noisymodule" = "xy" ]; then
+		echo "${testname:-${FUNCNAME[0]}}: module was noisy on stderr, as expected"
+		return 0
+	else
+		echo "${testname:-${FUNCNAME[0]}}: module was NOT noisy on stderr, which was NOT expected"
+		return 1
+	fi
+}
+
+function expect-quiet-module {
+	if [ "x$noisymodule" = "xy" ]; then
+		echo "${testname:-${FUNCNAME[0]}}: module was NOISY on stderr, which was NOT expected"
+		return 1
+	else
+		echo "${testname:-${FUNCNAME[0]}}: module was not noisy on stderr, as expected"
+		return 0
+	fi
+}
+
+
+
+function variable-exists {
+	while read line; do
+		case "$line" in
+			$1=*)
+				echo "${testname:-${FUNCNAME[0]}}: the variable \$$1 exists"
+				return 0
+				;;
+			"unset $var")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 is NOT PRESENT (HAS BEEN UNSET)"
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$1 is NOT PRESENT"
+	return 1
+}
+
+function no-variable {
+	while read line; do
+		case "$line" in
+			$1=*)
+				echo "${testname:-${FUNCNAME[0]}}: the variable \$$1 EXISTS WHEN IT SHOULD NOT ($line)"
+				return 1
+				;;
+			"unset $var")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 is not present (has been unset)"
+				return 0
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$1 is not present"
+	return 0
+}
+
+function variable-is {
+	local var
+	var="$1"
+	shift
+	while read line; do
+		case "$line" in
+			"$var=$*")
+				echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is set to \"$*\""
+				return 0
+				;;
+			$var=*)
+				echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is \"${line#$var=}\", which IS NOT \"$*\" ($line)"
+				return 1
+				;;
+			"unset $var")
+				if [ "x$*" = "x" ]; then
+					echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is unset, which is close enough to \"$*\""
+					return 0
+				else
+					echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is unset, which IS NOT \"$*\""
+					return 1
+				fi
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$var is not present at all"
+	return 1
+}
+
+function variable-is-not {
+	local var
+	var="$1"
+	shift
+	while read line; do
+		case "$line" in
+			"$var=$*")
+				echo "${testname:-${FUNCNAME[0]}}: the variable \$$var IS SET to \"$*\""
+				return 1
+				;;
+			$var=*)
+				echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is \"${line#$var=}\", which is not \"$*\""
+				return 0
+				;;
+			"unset $var")
+				if [ "x$*" = "x" ]; then
+					echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is unset, which IS CLOSE ENOUGH TO \"$*\""
+					return 1
+				else
+					echo "${testname:-${FUNCNAME[0]}}: the variable \$$var is unset, which is not \"$*\""
+					return 0
+				fi
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$var is not present at all"
+	return 0
+}
+
+
+function variable-contains {
+	while read line; do
+		case "$line" in
+			"$1"="$*")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 contains \"$*\" (exactly)"
+				return 0
+				;;
+			"$1"="$*"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 contains \"$*\" (at the start)"
+				return 0
+				;;
+			"$1"=*"$*")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 contains \"$*\" (at the end)"
+				return 0
+				;;
+			"$1"=*"$*"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 contains \"$*\""
+				return 0
+				;;
+			"$1"=*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 DOES NOT CONTAINS \"$*\" ($line)"
+				return 1
+				;;
+			"unset $1")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 IS NOT PRESENT (HAS BEEN UNSET)"
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$1 IS NOT PRESENT AT ALL"
+	return 1
+}
+
+
+function variable-not-contains {
+	while read line; do
+		case "$line" in
+			"$1"="$*")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 CONTAINS \"$*\" (EXACTLY)"
+				return 1
+				;;
+			"$1"="$*"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 CONTAINS \"$*\" (AT THE START)"
+				return 1
+				;;
+			"$1"=*"$*")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 CONTAINS \"$*\" (AT THE END)"
+				return 1
+				;;
+			"$1"=*"$*"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 CONTAINS \"$*\""
+				return 1
+				;;
+			"$1"=*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 does not contains \"$*\" ($line)"
+				return 0
+				;;
+			"unset $1")
+				echo "${testname:-${FUNCNAME[0]}}: \$$1 is not present (has been unset)"
+				return 0
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$1 is not present at all"
+	return 0
+}
+
+
+# $1 = variable name
+# $2 = the other stuff that ${*:3} is being tested against
+# ${*:3} = stuff that we are testing is before
+function variable-contains-before {
+	local var
+	local otherstuff
+	local testing
+	var="$1"
+	otherstuff="$2"
+	testing="${*:3}"
+	while read line; do
+		case "$line" in
+			"$var"=*"$testing"*"$otherstuff"*"$testing"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var contains \"$testing\" BEFORE AND AFTER \"$otherstuff\" ($line)"
+				return 0  # only just
+				;;
+			"$var"=*"$testing"*"$otherstuff"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var contains \"$testing\" before \"$otherstuff\""
+				return 0
+				;;
+			"$var"=*"$otherstuff"*"$testing"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var CONTAINS \"$testing\", BUT AFTER \"$otherstuff\" ($line)"
+				return 1
+				;;
+			"$var"=*"$testing"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var contains \"$testing\", but not \"$otherstuff\""
+				return 0
+				;;
+			"$var"=*"$otherstuff"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var DOES NOT CONTAIN \"$testing\" (but does contain \"$otherstuff\") ($line)"
+				return 1
+				;;
+			"$var"=*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var DOES NOT CONTAIN \"$testing\" (nor does it contain \"$otherstuff\") ($line)"
+				return 1
+				;;
+			"unset $var")
+				echo "${testname:-${FUNCNAME[0]}}: \$$var IS NOT PRESENT (HAS BEEN UNSET)"
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$var IS NOT PRESENT AT ALL"
+	return 1
+}
+
+# $1 = variable name
+# $2 = the other stuff that ${*:3} is being tested against
+# ${*:3} = stuff that we are testing is after
+function variable-contains-after {
+	local var
+	local otherstuff
+	local testing
+	var="$1"
+	otherstuff="$2"
+	testing="${*:3}"
+	while read line; do
+		case "$line" in
+			"$var"=*"$testing"*"$otherstuff"*"$testing"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var contains \"$testing\" BEFORE AND AFTER \"$otherstuff\" ($line)"
+				return 0  # only just
+				;;
+			"$var"=*"$otherstuff"*"$testing"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var contains \"$testing\" after \"$otherstuff\""
+				return 0
+				;;
+			"$var"=*"$testing"*"$otherstuff"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var CONTAINS \"$testing\", BUT BEFORE \"$otherstuff\" ($line)"
+				return 1
+				;;
+			"$var"=*"$testing"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var contains \"$testing\", but not \"$otherstuff\""
+				return 0
+				;;
+			"$var"=*"$otherstuff"*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var DOES NOT CONTAIN \"$testing\" (but does contain \"$otherstuff\") ($line)"
+				return 1
+				;;
+			"$var"=*)
+				echo "${testname:-${FUNCNAME[0]}}: \$$var DOES NOT CONTAIN \"$testing\" (nor does it contain \"$otherstuff\") ($line)"
+				return 1
+				;;
+			"unset $var")
+				echo "${testname:-${FUNCNAME[0]}}: \$$var IS NOT PRESENT (HAS BEEN UNSET)"
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$var IS NOT PRESENT AT ALL"
+	return 1
+}
+
+
+# $1 = variable name
+# ${*:2} = stuff that we are testing is before the previous variable contents
+function variable-contains-before-previous {
+	testname="${FUNCNAME[0]}" variable-contains-before "$1" "$(getpriorenv "$1")" "${@:2}"
+}
+
+# $1 = variable name
+# ${*:2} = stuff that we are testing is after the previous variable contents
+function variable-contains-after-previous {
+	testname="${FUNCNAME[0]}" variable-contains-after "$1" "$(getpriorenv "$1")" "${@:2}"
+}
+
+
+
+
+
+function path-contains {
+	while read line; do
+		case "$line" in
+			$1=*)
+				newline="$(echo "$line" | sed -e 's/^'"$1"'=//')"
+				oldIFS="$IFS"
+				IFS="${pathsep:-:}"
+				for component in $newline; do
+					if [ "x$component" = "x$2" ]; then
+						echo "${testname:-${FUNCNAME[0]}}: the path \"$2\" is present in \$$1"
+						return 0
+					fi
+				done
+				IFS="$oldIFS"
+				echo "${testname:-${FUNCNAME[0]}}: the path \"$2\" is NOT PRESENT in \$$1 ($line)"
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$1 IS NOT PRESENT AT ALL"
+	return 1
+}
+
+function path-not-contains {
+	while read line; do
+		case "$line" in
+			$1=*)
+				newline="$(echo "$line" | sed -e 's/^'"$1"'=//')"
+				oldIFS="$IFS"
+				IFS="${pathsep:-:}"
+				for component in $newline; do
+					if [ "x$component" = "x$2" ]; then
+						echo "${testname:-${FUNCNAME[0]}}: the path \"$2\" IS PRESENT in \$$1"
+						return 1
+					fi
+				done
+				IFS="$oldIFS"
+				echo "${testname:-${FUNCNAME[0]}}: the path \"$2\" is not present in \$$1 ($line)"
+				return 0
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$1 is not present at all"
+	return 0
+}
+
+function module-loaded {
+	#echo "${FUNCNAME[0]}: debug: \$LOADEDMODULES='$LOADEDMODULES'"
+	testname="${FUNCNAME[0]}" path-contains LOADEDMODULES "${1:-package/version}"
+}
+
+function module-not-loaded {
+	#echo "${FUNCNAME[0]}: debug: \$LOADEDMODULES='$LOADEDMODULES'"
+	testname="${FUNCNAME[0]}" path-not-contains LOADEDMODULES "${1:-package/version}"
+}
+
+function module-neither-loaded-nor-not-loaded {
+	#echo "${FUNCNAME[0]}: debug: \$LOADEDMODULES='$LOADEDMODULES'"
+	testname="${FUNCNAME[0]}" no-variable LOADEDMODULES
+}
+
+
+# before-paths PATH wrapper realbin     to test wrapperdirs are correctly ahead of the real bin dirs
+function before-paths {
+	var="$1"
+	checkpath="$2"
+	shift 2
+	# check that checkpath appears in $var, and that is appears in $var AFTER
+	# any of the other remaining paths that might appear in $var
+	while read line; do
+		case "$line" in
+			$var=*)
+				newline="$(echo "$line" | sed -e 's/^'"$var"'=//')"
+				oldIFS="$IFS"
+				#IFS=": "
+				IFS="${pathsep:-:}"
+				for component in $newline; do
+					#echo "testing current path component = \"$component\""
+					if [ "x$component" = "x$checkpath" ]; then
+						echo "${testname:-${FUNCNAME[0]}}: the path \"$checkpath\" is present in \$$var before any of: $@"
+						return 0
+					else
+						for possiblebaddie in $@; do
+							#echo "testing against possible baddie = \"$possiblebaddie\""
+							if [ "x$component" = "x$possiblebaddie" ]; then
+								echo "${testname:-${FUNCNAME[0]}}: the path \"$checkpath\" is NOT PRESENT in \$$var before any of: $@"
+								echo "${testname:-${FUNCNAME[0]}}: the problem is \"$possiblebaddie\""
+								return 1
+							fi
+						done
+					fi
+				done
+				IFS="$oldIFS"
+				echo "${testname:-${FUNCNAME[0]}}: the path \"$checkpath\" is NOT PRESENT AT ALL in \$$var ($line)"
+				return 1
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$var is NOT PRESENT AT ALL"
+	return 1
+}
+
+function before-previous-paths {
+	local input
+	input="$(cat)"
+
+	local p
+	p="$1"
+	shift
+
+	local i
+	for i; do
+		testname="${FUNCNAME[0]}" before-paths "$p" "$i" "$(getpriorenv "$p")" <<< "$input"
+	done
+}
+
+function reversepath {
+	local oldIFS
+	local s
+	local i
+	oldIFS="$IFS"
+	#IFS=":"
+	IFS="${pathsep:-:}"
+	s=""
+	for i in $1; do
+		if [ "x$s" = "x" ]; then
+			s="$i"
+		else
+			#s="$i:$s"
+			s="$i${pathsep:-:}$s"
+		fi
+	done
+	IFS="$oldIFS"
+	echo "$s"
+}
+
+function reversepaths {
+	local i
+	local s
+	s=""
+	for i; do
+		if [ "x$s" = "x" ]; then
+			s="$(reversepath "$i")"
+		else
+			s="$(reversepath "$i") $s"
+		fi
+	done
+	echo "$s"
+}
+
+function after-paths {
+	var="$1"
+	checkpath="$2"
+	shift 2
+	# check that checkpath appears in $var, and that is appears in $var AFTER
+	# any of the other remaining paths that might appear in $var
+	while read line; do
+		case "$line" in
+			$var=*)
+				newline="$(echo "$line" | sed -e 's/^'"$var"'=//')"
+				echo "${testname:-${FUNCNAME[0]}}: calling before-paths on reversed paths"
+				echo "$var=$(reversepath "$newline")" \
+					| before-paths "$var" "$checkpath" "$(reversepaths "$@")"
+				rc=$?
+				echo "${testname:-${FUNCNAME[0]}}: back from before-paths"
+				return $rc
+				;;
+		esac
+	done
+	echo "${testname:-${FUNCNAME[0]}}: \$$var is NOT PRESENT AT ALL"
+	return 1
+}
+
+function after-previous-paths {
+	local input
+	input="$(cat)"
+
+	local p
+	p="$1"
+	shift
+
+	local i
+	for i; do
+		testname="${FUNCNAME[0]}" after-paths "$p" "$i" "$(getpriorenv "$p")" <<< "$input"
+	done
+}
+
+
+
+# This implementation of flags-* by re-using the path-* stuff, but with " " instead of ":" as the separator, is wrong.
+#
+#function flags-contains {
+#	testname="${FUNCNAME[0]}" pathsep=" " path-contains "$@"
+#}
+#
+#function flags-not-contains {
+#	testname="${FUNCNAME[0]}" pathsep=" " path-not-contains "$@"
+#}
+#
+#function before-flags {
+#	testname="${FUNCNAME[0]}" pathsep=" " before-paths "$@"
+#}
+#
+#function before-previous-flags {
+#	testname="${FUNCNAME[0]}" pathsep=" " before-previous-paths "$@"
+#}
+#
+#function after-flags {
+#	testname="${FUNCNAME[0]}" pathsep=" " after-paths "$@"
+#}
+#
+#function after-previous-flags {
+#	testname="${FUNCNAME[0]}" pathsep=" " after-previous-paths "$@"
+#}
+
+
+function flags-contains {
+	testname="${FUNCNAME[0]}" variable-contains "$@"
+}
+
+function flags-not-contains {
+	testname="${FUNCNAME[0]}" variable-not-contains "$@"
+}
+
+# $1 = variable name
+# $2 = the other stuff that ${*:3} is being tested against
+# ${*:3} = stuff that we are testing is before
+function before-flags {
+	testname="${FUNCNAME[0]}" variable-contains-before "$@"
+}
+
+# $1 = variable name
+# $2 = the other stuff that ${*:3} is being tested against
+# ${*:3} = stuff that we are testing is after
+function after-flags {
+	testname="${FUNCNAME[0]}" variable-contains-after "$@"
+}
+
+# $1 = variable name
+# ${*:2} = stuff that we are testing is before the previous paths
+function before-previous-flags {
+	testname="${FUNCNAME[0]}" variable-contains-before-previous "$@"
+}
+
+# $1 = variable name
+# ${*:2} = stuff that we are testing is after the previous paths
+function after-previous-flags {
+	testname="${FUNCNAME[0]}" variable-contains-after-previous "$@"
+}
+
+
+
+
+
+
+
+echo "This test base: $thistestbasis"
+echo ""
+
+rawmodulecmd="$(type module | sed -ne 's/^\s*eval\s\+`\(.*\)\s\+\(bash\|sh\|tcsh\|csh\)\s\+\(\$\*\|"\$@"\)`/\1/p')"
+#echo "$rawmodulecmd"
+eval "modulecmd=\"$(echo "$rawmodulecmd")\""
+#echo "$modulecmd"
+
+auditmodules=""
+if ! type audit-modules > /dev/null 2>&1; then
+	echo "Unable to find audit-modules, trying audit-modules module"
+	if ! module load audit-modules; then
+		# oh well
+		echo "Unable to load audit-modules module"
+	fi
+	if ! type audit-modules > /dev/null 2>&1; then
+		echo "Unable to find audit-modules, not using it"
+	else
+		auditmodules="audit-modules"
+	fi
+	echo ""
+else
+	auditmodules="audit-modules"
+fi
+
+
+numtests=0
+#numfailed=0
+#numpassed=0
+
+declare -a test_name
+declare -a test_thisname
+declare -a test_testsuite
+declare -a test_commands
+declare -a test_results
+declare -a test_expectfail
+declare -a test_modulename
+declare -a test_precommands
+declare -a test_extraloadedmodules
+declare -a test_extranonloadedmodules
+
+echo -n "Reading tests: "
+for testsuite in "${testsuites[@]}"; do
+	if [ -r "$testbase/$testsuite" ]; then
+		source "$testbase/$testsuite"
+	else
+		echo "..."
+		echo "Unable to read $testbase/$testsuite"
+		echo -n "Reading tests: "
+	fi
+done
+echo "done"
+echo "TOTAL: $numtests tests"
+echo ""
+
+
+echo -n "Checking for duplicate test names... "
+dupes="$(for i in "${test_name[@]}"; do
+		echo "$i"
+	done | sort | uniq -dc)"
+if [ "x$dupes" != "x" ]; then
+	echo ""
+	echo "Warning: Duplicate test names found:"
+	echo "$dupes"
+else
+	echo "none found"
+fi
+echo ""
+
+
+#for (( offset=0 ; offset < $numjobs ; offset++ )); do
+#	do_run_tests "$numjobs" "$offset"
+#done
+
+for (( offset=0 ; offset < numjobs; offset++ )); do
+	do_run_tests "$numjobs" "$offset" &
+done
+wait
+
+
+numfailed=0
+oldnullglob="$(shopt -p nullglob)"
+shopt -s nullglob
+for i in "$failedbase"/*; do
+	numfailed="$(( $numfailed + 1 ))"
+done
+eval "$oldnullglob"
+numpassed="$(( $numtests - $numfailed ))"
+
+
+rmdir --ignore-fail-on-non-empty "$currentbase" "$failedbase" "$thistestbase"
+if [ "x$keep" = "xy" ]; then
+	rmdir --ignore-fail-on-non-empty "$keepbase"
+fi
+
+echo ""
+if [ "$numfailed" -gt 0 ]; then
+	echo "WARNING: $numfailed TESTS FAILED"
+else
+	echo "All $numpassed tests passed"
+fi
+echo ""
+

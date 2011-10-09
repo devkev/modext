@@ -1,0 +1,30 @@
+#!/bin/bash
+
+
+
+for good_group in $(groups); do
+runtest -name "good-$good_group" -commands "
+package-access-group $good_group
+" -results '
+expect-audit-success
+expect-load-success
+no-change
+'
+done
+
+
+
+bgi=0
+while groups | grep -s -q "badgroup$bgi"; do
+	bgi="$(($i+1))"
+done
+bad_group="badgroup$bgi"
+
+runtest -name "bad-$bad_group" -commands "
+package-access-group $bad_group
+" -results '
+expect-audit-success
+expect-load-fail
+expect-noisy-module
+'
+

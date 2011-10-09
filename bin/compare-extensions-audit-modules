@@ -1,0 +1,51 @@
+#!/bin/bash
+
+this_version="0.9"
+
+if [ "x$1" = "x--help" -o "x$1" = "x-h" ]; then
+	echo "Usage: ${0##*/} [version1 [version2 [diff options]]]"
+	echo "If version1 is omitted, the current default version is assumed."
+	echo "If version2 is omitted, this version ($this_version) is assumed."
+	echo "diff options default to -u"
+	exit 0
+fi
+
+AUDIT_MODULES="${AUDIT_MODULES:-audit-modules}"
+
+declare -a diffopts
+if [ "$#" -eq 0 ]; then
+	v1="default"
+	v2="this"
+elif [ "$#" -eq 1 ]; then
+	v1="default"
+	v2="$1"
+elif [ "$#" -ge 2 ]; then
+	v1="$1"
+	v2="$2"
+	shift 2
+	diffopts=("$@")
+fi
+
+if [ "${#diffopts[@]}" -eq 0 ]; then
+	diffopts=(-u)
+fi
+
+function doshow {
+	case "$1" in
+		""|default)
+			$AUDIT_MODULES
+			;;
+		this)
+			ALTERNATE_MODULE_EXTENSIONS=/opt/Modules/extensions/"$this_version"/extensions.tcl $AUDIT_MODULES | grep -v '^Notice: switching to alternate extensions:'
+			;;
+		*)
+			ALTERNATE_MODULE_EXTENSIONS=/opt/Modules/extensions/"$1"/extensions.tcl $AUDIT_MODULES | grep -v '^Notice: switching to alternate extensions:'
+			;;
+	esac
+}
+
+echo "--- $v1$(if [ "x$v1" = "xthis" ]; then echo " ($this_version)"; fi)"
+echo "+++ $v2$(if [ "x$v2" = "xthis" ]; then echo " ($this_version)"; fi)"
+
+diff "${diffopts[@]}" <(doshow "$v1") <(doshow "$v2")
+

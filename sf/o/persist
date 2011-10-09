@@ -1,0 +1,17 @@
+#%Module1.0
+
+proc ModulesHelpSupplement { } {
+	if { [array names ::env $::optenv_persistent] != "" } {
+		puts stderr "Currently persistent options:"
+		foreach opt [split $::env($::optenv_persistent) ":"] {
+			puts stderr "    $opt"
+		}
+	} else {
+		puts stderr "No options are currently persistent."
+	}
+	puts stderr ""
+}
+
+source /opt/Modules/extensions/extensions.tcl
+declare-option
+

@@ -1,0 +1,389 @@
+#!/bin/bash
+
+
+
+runtest -name "language-invalid-1" -commands '
+include-dir -language invalid include
+' -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+runtest -name "language-c-1" -commands '
+include-dir -language c include
+' -results '
+before-previous-paths C_INCLUDE_PATH /apps/package/version/include
+no-change-except C_INCLUDE_PATH
+'
+
+runtest -name "language-cxx-1" -commands '
+include-dir -language cxx include
+' -results '
+before-previous-paths CPLUS_INCLUDE_PATH /apps/package/version/include
+no-change-except CPLUS_INCLUDE_PATH
+'
+
+runtest -name "language-cxx-2" -commands '
+include-dir -language c++ include
+' -results '
+previous-test
+'
+
+runtest -name "language-cpp-1" -commands '
+include-dir -language cpp include
+' -results '
+before-previous-paths CPATH /apps/package/version/include
+no-change-except CPATH
+'
+
+runtest -name "language-cxxcpp-1" -commands '
+include-dir -language cxxcpp include
+' -results '
+previous-test
+'
+
+runtest -name "language-cxxcpp-2" -commands '
+include-dir -language c++cpp include
+' -results '
+previous-test
+'
+
+runtest -name "language-cxxcpp-3" -commands '
+include-dir -language cppcxx include
+' -results '
+previous-test
+'
+
+runtest -name "language-cxxcpp-4" -commands '
+include-dir -language cppc++ include
+' -results '
+previous-test
+'
+
+runtest -name "language-f-1" -commands '
+include-dir -language f include
+' -results '
+before-previous-paths FPATH /apps/package/version/include
+no-change-except FPATH
+'
+
+runtest -name "language-f-2" -commands '
+include-dir -language fortran include
+' -results '
+previous-test
+'
+
+runtest -name "language-f77-1" -commands '
+include-dir -language f77 include
+' -results '
+previous-test
+'
+
+runtest -name "language-f77-2" -commands '
+include-dir -language fortran77 include
+' -results '
+previous-test
+'
+
+runtest -name "language-f90-1" -commands '
+include-dir -language f90 include
+' -results '
+previous-test
+'
+
+runtest -name "language-f90-2" -commands '
+include-dir -language fortran90 include
+' -results '
+previous-test
+'
+
+runtest -name "language-ld-1" -commands '
+include-dir -language ld include
+' -results '
+before-previous-paths LDPATH /apps/package/version/include
+no-change-except LDPATH
+'
+
+runtest -name "language-ld-2" -commands '
+include-dir -language link include
+' -results '
+previous-test
+'
+
+runtest -name "language-ld-3" -commands '
+include-dir -language linker include
+' -results '
+previous-test
+'
+
+runtest -name "language-ar-1" -commands '
+include-dir -language ar include
+' -results '
+before-previous-paths ARPATH /apps/package/version/include
+no-change-except ARPATH
+'
+
+runtest -name "language-ar-2" -commands '
+include-dir -language a include
+' -results '
+previous-test
+'
+
+runtest -name "language-ar-3" -commands '
+include-dir -language archive include
+' -results '
+previous-test
+'
+
+runtest -name "language-ar-4" -commands '
+include-dir -language archiver include
+' -results '
+previous-test
+'
+
+runtest -name "language-as-1" -commands '
+include-dir -language as include
+' -results '
+before-previous-paths ASPATH /apps/package/version/include
+no-change-except ASPATH
+'
+
+runtest -name "language-as-2" -commands '
+include-dir -language s include
+' -results '
+previous-test
+'
+
+runtest -name "language-as-3" -commands '
+include-dir -language assembly include
+' -results '
+previous-test
+'
+
+runtest -name "language-as-4" -commands '
+include-dir -language assembler include
+' -results '
+previous-test
+'
+
+runtest -name "language-py-1" -commands '
+include-dir -language py include
+' -results '
+before-previous-paths PYTHONPATH /apps/package/version/include
+no-change-except PYTHONPATH
+'
+
+runtest -name "language-py-2" -commands '
+include-dir -language python include
+' -results '
+previous-test
+'
+
+runtest -name "python-lib-dir-1" -commands '
+python-lib-dir include
+' -results '
+previous-test
+'
+
+runtest -name "language-pl-1" -commands '
+include-dir -language pl include
+' -results '
+before-previous-paths PERLLIB /apps/package/version/include
+no-change-except PERLLIB
+'
+
+runtest -name "language-pl-2" -commands '
+include-dir -language perl include
+' -results '
+previous-test
+'
+
+runtest -name "perl-lib-dir-1" -commands '
+perl-lib-dir include
+' -results '
+previous-test
+'
+
+runtest -name "language-pl5-1" -commands '
+include-dir -language pl5 include
+' -results '
+before-previous-paths PERL5LIB /apps/package/version/include
+no-change-except PERL5LIB
+'
+
+runtest -name "language-pl5-2" -commands '
+include-dir -language perl5 include
+' -results '
+previous-test
+'
+
+runtest -name "perl5-lib-dir-1" -commands '
+perl5-lib-dir include
+' -results '
+previous-test
+'
+
+runtest -name "language-c-and-cxx-1" -commands '
+include-dir -language "c cxx" include
+' -results '
+previous-test language-c-1
+previous-test language-cxx-1
+before-previous-paths CPATH /apps/package/version/include
+no-change-except CPATH
+'
+
+runtest -name "language-none-1" -commands '
+include-dir -language none include
+' -results '
+no-change
+'
+
+runtest -name "language-all-1" -commands '
+include-dir -language all include
+' -results '
+previous-test language-c-1
+previous-test language-cxx-1
+previous-test language-cpp-1
+previous-test language-f-1
+previous-test language-ld-1
+previous-test language-ar-1
+previous-test language-as-1
+previous-test language-py-1
+previous-test language-pl-1
+previous-test language-pl5-1
+'
+
+runtest -name "language-all-2" -commands '
+include-dir include
+' -results '
+previous-test
+'
+
+runtest -name "language-multi-c-1" -commands '
+include-dir -language c include include2
+' -results '
+before-previous-paths C_INCLUDE_PATH /apps/package/version/include
+before-previous-paths C_INCLUDE_PATH /apps/package/version/include2
+no-change-except C_INCLUDE_PATH
+'
+
+runtest -name "language-multi-c-2" -commands '
+include-dir -language c include include2 include3
+' -results '
+previous-test
+before-previous-paths C_INCLUDE_PATH /apps/package/version/include3
+'
+
+runtest -name "language-multi-c-3" -commands '
+include-dir -language c include include2 include3 include4
+' -results '
+previous-test
+before-previous-paths C_INCLUDE_PATH /apps/package/version/include4
+'
+
+
+
+runtest -name "flavour-invalid-1" -commands '
+include-dir -language c -flavour invalid include
+' -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+runtest -name "language-invalid-flavour-invalid-1" -commands '
+include-dir -language invalid -flavour invalid include
+' -results '
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+'
+
+runtest -name "flavour-gnu-1" -commands '
+include-dir -language c -flavour gnu include
+' -results '
+before-previous-paths C_INCLUDE_PATH_GNU /apps/package/version/include
+no-change-except C_INCLUDE_PATH_GNU
+'
+
+runtest -name "flavour-intel-1" -commands '
+include-dir -language c -flavour intel include
+' -results '
+before-previous-paths C_INCLUDE_PATH_INTEL /apps/package/version/include
+no-change-except C_INCLUDE_PATH_INTEL
+'
+
+runtest -name "flavour-pgi-1" -commands '
+include-dir -language c -flavour pgi include
+' -results '
+before-previous-paths C_INCLUDE_PATH_PGI /apps/package/version/include
+no-change-except C_INCLUDE_PATH_PGI
+'
+
+runtest -name "flavour-pgi-2" -commands '
+include-dir -language c -flavour portland include
+' -results '
+previous-test
+'
+
+runtest -name "flavour-multi-1" -commands '
+include-dir -language c -flavour "gnu intel" include
+' -results '
+previous-test flavour-gnu-1
+previous-test flavour-intel-1
+'
+
+runtest -name "flavour-multi-2" -commands '
+include-dir -language c -flavour gnu,intel include
+' -results '
+previous-test
+'
+
+runtest -name "flavour-multi-3" -commands '
+include-dir -language c -flavour gnu include
+include-dir -language c -flavour intel include
+' -results '
+previous-test
+'
+
+runtest -name "flavour-multi-4" -commands '
+include-dir -language c -flavour gnu,intel,pgi include
+' -results '
+previous-test flavour-gnu-1
+previous-test flavour-intel-1
+previous-test flavour-pgi-1
+'
+
+runtest -name "flavour-multi-5" -commands '
+include-dir -language c -flavour gnu include
+include-dir -language c -flavour intel include
+include-dir -language c -flavour pgi include
+' -results '
+previous-test
+'
+
+
+runtest -name "flavour-all-1" -commands '
+include-dir -language c -flavour all include
+' -results '
+previous-test flavour-gnu-1
+previous-test flavour-intel-1
+previous-test flavour-pgi-1
+'
+
+
+runtest -name "flavour-none-1" -commands '
+include-dir -language c -flavour none include
+' -results '
+before-previous-paths C_INCLUDE_PATH /apps/package/version/include
+no-change-except C_INCLUDE_PATH
+'
+
+runtest -name "flavour-none-2" -commands '
+include-dir -language c -flavour "" include
+' -results '
+previous-test
+'
+
+

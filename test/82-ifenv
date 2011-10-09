@@ -1,0 +1,581 @@
+#!/bin/bash
+
+
+runtest -name "ifset-non-setenv-explicit-set-noscript" -precommands "
+unset RESULT
+export INPUT='foobar'
+" -commands "
+if-envvar-set INPUT prepend-path RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-non-setenv-explicit-empty-noscript" -precommands "
+unset RESULT
+export INPUT=''
+" -commands "
+if-envvar-set INPUT prepend-path RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-non-setenv-explicit-unset-noscript" -precommands "
+unset RESULT
+unset INPUT
+" -commands "
+if-envvar-set INPUT prepend-path RESULT success
+" -results "
+no-change
+"
+
+
+
+runtest -name "ifset-non-setenv-explicit-set-script" -precommands "
+unset RESULT
+export INPUT='foobar'
+" -commands "
+if-envvar-set INPUT { prepend-path RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-non-setenv-explicit-empty-script" -precommands "
+unset RESULT
+export INPUT=''
+" -commands "
+if-envvar-set INPUT { prepend-path RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-non-setenv-explicit-unset-script" -precommands "
+unset RESULT
+unset INPUT
+" -commands "
+if-envvar-set INPUT { prepend-path RESULT success }
+" -results "
+no-change
+"
+
+
+
+runtest -name "ifset-non-setenv-explicit-set-multilinescript" -precommands "
+unset RESULT
+export INPUT='foobar'
+" -commands "
+if-envvar-set INPUT {
+	prepend-path RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-non-setenv-explicit-empty-multilinescript" -precommands "
+unset RESULT
+export INPUT=''
+" -commands "
+if-envvar-set INPUT {
+	prepend-path RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-non-setenv-explicit-unset-multilinescript" -precommands "
+unset RESULT
+unset INPUT
+" -commands "
+if-envvar-set INPUT {
+	prepend-path RESULT success
+}
+" -results "
+no-change
+"
+
+
+
+
+runtest -name "ifset-setenv-explicit-set-noscript" -precommands "
+export RESULT=fail
+export INPUT='foobar'
+" -commands "
+if-envvar-set INPUT setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-explicit-empty-noscript" -precommands "
+export RESULT=fail
+export INPUT=''
+" -commands "
+if-envvar-set INPUT setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-explicit-unset-noscript" -precommands "
+export RESULT=fail
+unset INPUT
+" -commands "
+if-envvar-set INPUT setenv RESULT success
+" -results "
+no-change
+"
+
+
+
+runtest -name "ifset-setenv-explicit-set-script" -precommands "
+export RESULT=fail
+export INPUT='foobar'
+" -commands "
+if-envvar-set INPUT { setenv RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-explicit-empty-script" -precommands "
+export RESULT=fail
+export INPUT=''
+" -commands "
+if-envvar-set INPUT { setenv RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-explicit-unset-script" -precommands "
+export RESULT=fail
+unset INPUT
+" -commands "
+if-envvar-set INPUT { setenv RESULT success }
+" -results "
+no-change
+"
+
+
+
+runtest -name "ifset-setenv-explicit-set-multilinescript" -precommands "
+export RESULT=fail
+export INPUT='foobar'
+" -commands "
+if-envvar-set INPUT {
+	setenv RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-explicit-empty-multilinescript" -precommands "
+export RESULT=fail
+export INPUT=''
+" -commands "
+if-envvar-set INPUT {
+	setenv RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-explicit-unset-multilinescript" -precommands "
+export RESULT=fail
+unset INPUT
+" -commands "
+if-envvar-set INPUT {
+	setenv RESULT success
+}
+" -results "
+no-change
+"
+
+
+
+
+runtest -name "ifset-setenv-implicit-set-noscript" -precommands "
+export RESULT=fail
+" -commands "
+if-envvar-set setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-implicit-empty-noscript" -precommands "
+export RESULT=''
+" -commands "
+if-envvar-set setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-implicit-unset-noscript" -precommands "
+unset RESULT
+" -commands "
+if-envvar-set setenv RESULT success
+" -results "
+no-change
+"
+
+
+
+runtest -name "ifset-setenv-implicit-set-script" -precommands "
+export RESULT=fail
+" -commands "
+if-envvar-set { setenv RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-implicit-empty-script" -precommands "
+export RESULT=''
+" -commands "
+if-envvar-set { setenv RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-implicit-unset-script" -precommands "
+unset RESULT
+" -commands "
+if-envvar-set { setenv RESULT success }
+" -results "
+no-change
+"
+
+
+
+runtest -name "ifset-setenv-implicit-set-multilinescript" -precommands "
+export RESULT=fail
+" -commands "
+if-envvar-set {
+	setenv RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-implicit-empty-multilinescript" -precommands "
+export RESULT=''
+" -commands "
+if-envvar-set {
+	setenv RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+runtest -name "ifset-setenv-implicit-unset-multilinescript" -precommands "
+unset RESULT
+" -commands "
+if-envvar-set {
+	setenv RESULT success
+}
+" -results "
+no-change
+"
+
+
+
+
+
+
+
+
+
+
+runtest -name "ifunset-non-setenv-explicit-set-noscript" -precommands "
+unset RESULT
+export INPUT='foobar'
+" -commands "
+if-envvar-unset INPUT prepend-path RESULT success
+" -results "
+no-change
+"
+
+runtest -name "ifunset-non-setenv-explicit-empty-noscript" -precommands "
+unset RESULT
+export INPUT=''
+" -commands "
+if-envvar-unset INPUT prepend-path RESULT success
+" -results "
+no-change
+"
+
+runtest -name "ifunset-non-setenv-explicit-unset-noscript" -precommands "
+unset RESULT
+unset INPUT
+" -commands "
+if-envvar-unset INPUT prepend-path RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+runtest -name "ifunset-non-setenv-explicit-set-script" -precommands "
+unset RESULT
+export INPUT='foobar'
+" -commands "
+if-envvar-unset INPUT { prepend-path RESULT success }
+" -results "
+no-change
+"
+
+runtest -name "ifunset-non-setenv-explicit-empty-script" -precommands "
+unset RESULT
+export INPUT=''
+" -commands "
+if-envvar-unset INPUT { prepend-path RESULT success }
+" -results "
+no-change
+"
+
+runtest -name "ifunset-non-setenv-explicit-unset-script" -precommands "
+unset RESULT
+unset INPUT
+" -commands "
+if-envvar-unset INPUT { prepend-path RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+runtest -name "ifunset-non-setenv-explicit-set-multilinescript" -precommands "
+unset RESULT
+export INPUT='foobar'
+" -commands "
+if-envvar-unset INPUT {
+	prepend-path RESULT success
+}
+" -results "
+no-change
+"
+
+runtest -name "ifunset-non-setenv-explicit-empty-multilinescript" -precommands "
+unset RESULT
+export INPUT=''
+" -commands "
+if-envvar-unset INPUT {
+	prepend-path RESULT success
+}
+" -results "
+no-change
+"
+
+runtest -name "ifunset-non-setenv-explicit-unset-multilinescript" -precommands "
+unset RESULT
+unset INPUT
+" -commands "
+if-envvar-unset INPUT {
+	prepend-path RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+runtest -name "ifunset-setenv-explicit-set-noscript" -precommands "
+export RESULT=fail
+export INPUT='foobar'
+" -commands "
+if-envvar-unset INPUT setenv RESULT success
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-explicit-empty-noscript" -precommands "
+export RESULT=fail
+export INPUT=''
+" -commands "
+if-envvar-unset INPUT setenv RESULT success
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-explicit-unset-noscript" -precommands "
+export RESULT=fail
+unset INPUT
+" -commands "
+if-envvar-unset INPUT setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+runtest -name "ifunset-setenv-explicit-set-script" -precommands "
+export RESULT=fail
+export INPUT='foobar'
+" -commands "
+if-envvar-unset INPUT { setenv RESULT success }
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-explicit-empty-script" -precommands "
+export RESULT=fail
+export INPUT=''
+" -commands "
+if-envvar-unset INPUT { setenv RESULT success }
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-explicit-unset-script" -precommands "
+export RESULT=fail
+unset INPUT
+" -commands "
+if-envvar-unset INPUT { setenv RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+runtest -name "ifunset-setenv-explicit-set-multilinescript" -precommands "
+export RESULT=fail
+export INPUT='foobar'
+" -commands "
+if-envvar-unset INPUT {
+	setenv RESULT success
+}
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-explicit-empty-multilinescript" -precommands "
+export RESULT=fail
+export INPUT=''
+" -commands "
+if-envvar-unset INPUT {
+	setenv RESULT success
+}
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-explicit-unset-multilinescript" -precommands "
+export RESULT=fail
+unset INPUT
+" -commands "
+if-envvar-unset INPUT {
+	setenv RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+
+runtest -name "ifunset-setenv-implicit-set-noscript" -precommands "
+export RESULT=fail
+" -commands "
+if-envvar-unset setenv RESULT success
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-implicit-empty-noscript" -precommands "
+export RESULT=''
+" -commands "
+if-envvar-unset setenv RESULT success
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-implicit-unset-noscript" -precommands "
+unset RESULT
+" -commands "
+if-envvar-unset setenv RESULT success
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+runtest -name "ifunset-setenv-implicit-set-script" -precommands "
+export RESULT=fail
+" -commands "
+if-envvar-unset { setenv RESULT success }
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-implicit-empty-script" -precommands "
+export RESULT=''
+" -commands "
+if-envvar-unset { setenv RESULT success }
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-implicit-unset-script" -precommands "
+unset RESULT
+" -commands "
+if-envvar-unset { setenv RESULT success }
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+
+runtest -name "ifunset-setenv-implicit-set-multilinescript" -precommands "
+export RESULT=fail
+" -commands "
+if-envvar-unset {
+	setenv RESULT success
+}
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-implicit-empty-multilinescript" -precommands "
+export RESULT=''
+" -commands "
+if-envvar-unset {
+	setenv RESULT success
+}
+" -results "
+no-change
+"
+
+runtest -name "ifunset-setenv-implicit-unset-multilinescript" -precommands "
+unset RESULT
+" -commands "
+if-envvar-unset {
+	setenv RESULT success
+}
+" -results "
+variable-is RESULT success
+no-change-except RESULT
+"
+
+
+

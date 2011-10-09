@@ -1,0 +1,138 @@
+
+
+# Correct the behaviour of various module command stupidities.
+
+
+#package provide modext 1.0
+
+
+namespace eval cluestick::real {}
+namespace eval cluestick::save {}
+
+
+# adjust module-info mode to accept unload, show, etc
+
+# module-info mode does not recognise that "unload" is a synonym for "remove",
+# or that "show" is a synonym for "display",
+# or that "rm" is a synonym for "remove",
+# or that "add" is a synonym for "load".
+
+if { ! [proc-defined cluestick::real::module-info] } {
+	rename ::module-info cluestick::real::module-info
+
+	proc ::module-info { args } {
+		set procname module-info
+		if { [llength $args] == 2 && [string equal [lindex $args 0] "mode"] } {
+			if { [string equal [lindex $args 1] "unload"] } {
+				lset args 1 "remove"
+			} elseif { [string equal [lindex $args 1] "rm"] } {
+				lset args 1 "remove"
+			} elseif { [string equal [lindex $args 1] "show"] } {
+				lset args 1 "display"
+			} elseif { [string equal [lindex $args 1] "add"] } {
+				lset args 1 "load"
+			} elseif { [string equal [lindex $args 1] "swap"] } {
+				lset args 1 "switch"
+			}
+		}
+		rename ::${procname} modext::cluestick::save::${procname}
+		rename modext::cluestick::real::${procname} ::${procname}
+		if { [llength $args] == 2 && [string equal [lindex $args 0] mode] && [string equal [lindex $args 1] load] && [::$procname mode switch2] } {
+			set retval 1
+		} else {
+			#set retval [eval ${procname} $args]
+			set retval [uplevel 1 ::${procname} $args]
+		}
+		rename ::${procname} modext::cluestick::real::${procname}
+		rename modext::cluestick::save::${procname} ::${procname}
+		return $retval
+	}
+}
+
+
+
+
+# is-loaded returns an empty string during module whatis, which means
+# that any statements along the lines of "if { [is-loaded somejunk] }" inside
+# module files, cause module whatis to fail.
+
+if { ! [proc-defined cluestick::real::is-loaded] } {
+	rename ::is-loaded cluestick::real::is-loaded
+
+	proc ::is-loaded { args } {
+		set procname is-loaded
+		if { [module-info mode whatis] } {
+			return 0
+		} else {
+			rename ::${procname} modext::cluestick::save::${procname}
+			rename modext::cluestick::real::${procname} ::${procname}
+			#set retval [eval ::${procname} $args]
+			set retval [uplevel 1 ::${procname} $args]
+			rename ::${procname} modext::cluestick::real::${procname}
+			rename modext::cluestick::save::${procname} ::${procname}
+			return $retval
+		}
+	}
+}
+
+
+
+
+# Doing "module list" inside a module causes $LOADEDMODULES (but not $_LMFILES_)
+# to be truncated to just the first entry.  Yeah, tell me about it.
+if { ! [proc-defined cluestick::real::module_fixlistbug] } {
+	rename ::module cluestick::real::module_fixlistbug
+
+	proc ::module { args } {
+		set procname module
+		if { [llength $args] == 1 && [string equal [lindex $args 0] "list"] } {
+			set realloadedmodules $::env(LOADEDMODULES)
+		}
+
+		rename ::${procname} modext::cluestick::save::${procname}_fixlistbug
+		rename modext::cluestick::real::${procname}_fixlistbug ::${procname}
+		#set retval [eval ::${procname} $args]
+		# Including the leading :: ahead of ${procname} causes module show to contain a leading ::, ugh
+		#set retval [uplevel 1 ::${procname} $args]
+		set retval [uplevel 1 ${procname} $args]
+		rename ::${procname} modext::cluestick::real::${procname}_fixlistbug
+		rename modext::cluestick::save::${procname}_fixlistbug ::${procname}
+
+		if { [info exists realloadedmodules] } {
+			set ::env(LOADEDMODULES) $realloadedmodules
+		}
+
+		return $retval
+	}
+}
+
+
+
+# setenvs that are done in module files cause $::env to be updated.
+# Pity that unsetenvs done in module files don't.  FFS.
+if { ! [proc-defined cluestick::real::unsetenv_updateenv] } {
+	rename ::unsetenv cluestick::real::unsetenv_updateenv
+
+	proc ::unsetenv { args } {
+		set procname unsetenv
+
+		rename ::${procname} modext::cluestick::save::${procname}_updateenv
+		rename modext::cluestick::real::${procname}_updateenv ::${procname}
+		#set retval [eval ::${procname} $args]
+		set retval [uplevel 1 ::${procname} $args]
+		rename ::${procname} modext::cluestick::real::${procname}_updateenv
+		rename modext::cluestick::save::${procname}_updateenv ::${procname}
+
+		foreach var $args {
+			if { [info exists ::env($var)] } {
+				unset ::env($var)
+			}
+		}
+
+		return $retval
+	}
+}
+
+
+
+

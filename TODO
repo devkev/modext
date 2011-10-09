@@ -1,0 +1,116 @@
+
+- auto-catch all errors and then log them?
+
+DONE - auto-catch and give SENSIBLE ERROR MESSAGES (not just "duh, source failed!")
+
+- test-suite with coverage of all features of all extension commands...
+
+- sensible auto-detected defaults for software-url-{version,subversion,revision} from $::version
+
+- set-basedir convert to OptProc, flexible flags (for gaussian/*-fast modules)
+
+- set-basedir-version-prefix: set prefix used in /apps/package/version
+  - eg. set-basedir-version-prefix "${::package}-" to easily handle /apps/molden/molden-4.7 and similar friends
+  - defaults to ""
+
+- similarly set-basedir-package-prefix
+  - defaults to ""
+
+- similarly set-basedir-root
+  - defaults to "/apps"
+
+- check for existence of $::basedir?
+  - what to do if it's not there??  just warn the user?  refuse to load?...  try other things like basedir-version-prefix = "${::package}-" ???...
+
+- make lib-dir, etc accept multiple paths and colon-separated paths like bin-dir does now
+
+- an option to make bin-dir, lib-dir, etc, and the cflags, ldflags, etc stuff prefix their env vars with PACKAGE_
+  - and set-envvar-prefix to override PACKAGE_ (eg. openmpi wants OMPI_ not OPENMPI_)
+
+- lib-dir -auto can auto-check for "lib" and/or "lib64" subdirs
+
+- lib-dir can auto-check for "pkgconfig" subdir, and call pkgconfig-dir
+  - only with -auto
+
+- similarly share-dir can check for "man" and/or "info" subdirs
+
+- over-arching "canonical-dir" to check for bin, lib, lib64, etc etc etc
+
+DONE - dir argument is optional, defaults to $::basedir, for all of these
+  - -base and/or -prefix and/or -root option for them to override $::basedir (low priority)
+
+- need something for LDFLAGS, LIBS, LDADD, CFLAGS, FFLAGS (anything else?)
+  - these boil down to: flags, and extra libs
+
+- need something for registering compilers that are provided
+  - provides-compiler -language ld|cpp|c|cxx|c++|f|f90|a|s [ -prefix-envvar <prefix> ] compiler-command
+  - include in help output
+  - ld = linker ("compiles" .o object files into executables)
+  - cpp = C pre-processor
+  - c = C
+  - cxx = c++ = C++
+  - f = Fortran
+  - f90 = Fortran 90
+  - a = .a static archives (ar)
+  - s = .s assembly language (as)
+
+- $PYTHONPATH
+- $PERL5LIB and/or $PERLLIB
+
+- lib-dir -force ""
+  - similar to -defaults and -default, except that it FORCES the option values indicated
+  - the options should then preferably not show up in $::options_used, since they can't
+    actually be influenced by users...
+  - this is "useful" eg. in the gaussian -fast module, and any other legacy junk which
+    needs to have ld_library_path set in the interim until they are recompiled using ld_run_path
+
+- use namespaces to keep things encapsulated properly
+
+- forbid-dotfile-load command, which stops the module from being loaded during .profile, etc
+  - not sure how to best acheive this technically...
+
+
+
+
+
+DONE - SOMETHING TO AUTOMATICALLY UPDATE THE DEFAULT VERSION, AND CHECK FILE PERMISSIONS FIRST!!!!
+
+DONE - software_url sub-version stuff
+DONE - software_url rewrite rules for shorter urls...
+
+DONE - software_url: set-software-map-package, set-software-map-version, subversion, etc etc
+
+DONE - docommon convert to OptProc
+
+DONE - self-conflict
+
+DONE - relocate stuff that belongs somewhere else to where it really belongs
+
+DONE - set-package-short-name (defaults to $::package)
+DONE - set-package-full-name
+DONE - set-package-short-description
+DONE - set-package-long-description
+DONE - set-package-commands-provided
+DONE - set-package-libraries-provided
+DONE - set-package-see-also
+DONE   - for auto-generation of whatis and help text
+
+DONE - if possible, auto-generated help text should also notice which options are used, and include info on them in the help text
+DONE   - if this isn't possible, provide set-package-options-used
+
+DONE - check for access prerequisite group with package-access-group
+
+DONE - inhibit-base-envvar: to inhibit at end: "setenv ${::package}_BASE $::basedir"
+DONE - similarly version-envvar
+
+DONE - audit-modules
+DONE   - give modules (or moduledir) on cmdline, otherwise will do everything in module avail
+DONE   - check modulefile ownership and permissions
+DONE     - un-readable dirs are fine, un-readable files are not
+DONE   - check whatis, help, show, load, unload (anything else?)
+DONE   - output report indicating failures
+
+DONE - working on abstractions - lib-dir and include-dir converting to new option styles
+
+DONE - pkg-config-dir for $PKG_CONFIG_PATH
+

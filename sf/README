@@ -1,0 +1,12 @@
+
+For information on what "module options" are, see
+
+    module help o
+
+and module help on the individual options.
+
+Also refer to /opt/Modules/extensions/abstractions.tcl to see some examples of
+where and how options are used.
+
+kjp900, 2008-12-17
+

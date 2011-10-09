@@ -1,0 +1,28 @@
+#%Module
+
+description {
+
+	#package require modext
+	#
+	#bin-dir bin
+	#
+	##tcllib-dir lib/tcl
+	#prepend-path -d " " TCLLIBPATH $::basedir/lib/tcl
+	#prepend-path MODULEPATH $::basedir/mf
+	#
+	## This is necessary until modules can respect that the prereq of this in essentials should stop unloading of this.
+	##cannot-unload
+
+	#prepend-path PATH /sw/syzix/noarch/modext/1.0-1/bin
+	bin-dir bin
+
+	#tcllib-dir lib
+	#prepend-path -d " " TCLLIBPATH /sw/syzix/noarch/modext/1.0-1/lib/tcl
+	#prepend-path MODULEPATH /sw/syzix/noarch/modext/1.0-1/mf
+	prepend-path -d " " TCLLIBPATH $basedir/lib/tcl
+	prepend-path MODULEPATH $basedir/sf
+
+	# This is necessary until modules can respect that the prereq of this in essentials should stop unloading of this.
+	cannot-unload
+
+}

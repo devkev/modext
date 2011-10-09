@@ -1,0 +1,191 @@
+#!/bin/bash
+
+
+unset bases
+declare -a bases
+
+function seenbase {
+	local i
+	for i in "${bases[@]}"; do
+		if [ "x$1" = "x$i" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+
+function simple-abstraction-suite {
+
+local -a envvars
+local envvar
+local cmdname
+
+local ordering
+ordering="${ORDERING:-before}"
+
+while [ "x$1" != "x--" -a $# -gt 0 ]; do
+	envvars[${#envvars[@]}]="$1"
+	shift
+done
+shift
+
+if [ ! $# -gt 0 ]; then
+	echo "Warning: Ignoring dodgy call to simple-abstraction-suite:"
+	echo "Warning: no command/args, only envvars (${#envvars[@]})"
+	echo "Warning: Maybe -- was forgotten?"
+	return 1
+fi
+
+cmdname="$1"
+shift
+
+local realnamebase
+realnamebase="$cmdname"
+for envvar in "${envvars[@]}"; do
+	realnamebase="$realnamebase-$envvar"
+done
+local namebase
+namebase="$realnamebase"
+
+local i
+i=1
+while seenbase "$namebase"; do
+	i="$(($i + 1))"
+	namebase="$realnamebase-$i"
+done
+bases[${#bases[@]}]="$namebase"
+
+
+runtest -name "$namebase-empty-1" -commands "
+$cmdname $*
+" -results "
+expect-audit-fail
+expect-load-fail
+expect-noisy-module
+"
+
+
+runtest -name "$namebase-simple-1" -commands "
+$cmdname $* bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "$ordering-previous-paths $envvar /apps/package/version/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+# relative, absolute paths
+runtest -name "$namebase-absolute-1" -commands "
+$cmdname $*  /foo/bar/bin
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "$ordering-previous-paths $envvar /foo/bar/bin"
+done)
+no-change-except ${envvars[*]}
+"
+
+
+runtest -name "$namebase-multi-1" -commands "
+$cmdname $*  bin bin2
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "$ordering-previous-paths $envvar /apps/package/version/bin /apps/package/version/bin2"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-multi-2" -commands "
+$cmdname $*  bin:bin2
+" -results "
+previous-test
+"
+
+runtest -name "$namebase-multi-3" -commands "
+$cmdname $*  bin bin2 bin3 bin4 bin5
+" -results "
+$(for envvar in "${envvars[@]}"; do
+echo "$ordering-previous-paths $envvar /apps/package/version/bin /apps/package/version/bin2 /apps/package/version/bin3 /apps/package/version/bin4 /apps/package/version/bin5"
+done)
+no-change-except ${envvars[*]}
+"
+
+runtest -name "$namebase-multi-4" -commands "
+$cmdname $*  bin:bin2:bin3:bin4:bin5
+" -results "
+previous-test
+"
+
+runtest -name "$namebase-multi-5" -commands "
+$cmdname $*  bin bin2:bin3 bin4:bin5
+" -results "
+previous-test
+"
+
+}
+
+
+if [ "x$DEFINITION_ONLY" = "xy" ]; then
+	return
+fi
+
+
+simple-abstraction-suite PATH -- bin-dir
+simple-abstraction-suite MANPATH -- man-dir
+simple-abstraction-suite INFOPATH -- info-dir
+simple-abstraction-suite LD_PRELOAD -- preload-lib
+
+# these commands get partial coverage from these tests,
+# but they need other tests in other files to get full coverage.
+simple-abstraction-suite PATH -- wrapper-dir
+simple-abstraction-suite PKG_CONFIG_PATH -- pkgconfig-dir
+simple-abstraction-suite PKG_CONFIG_PATH -- pkg-config-dir
+
+
+simple-abstraction-suite C_INCLUDE_PATH -- include-dir -language c
+simple-abstraction-suite CPLUS_INCLUDE_PATH -- include-dir -language c++
+simple-abstraction-suite CPLUS_INCLUDE_PATH -- include-dir -language cxx
+simple-abstraction-suite CPATH -- include-dir -language cpp
+simple-abstraction-suite CPATH -- include-dir -language c++cpp
+simple-abstraction-suite CPATH -- include-dir -language cxxcpp
+simple-abstraction-suite CPATH -- include-dir -language cppc++
+simple-abstraction-suite CPATH -- include-dir -language cppcxx
+simple-abstraction-suite FPATH -- include-dir -language f
+simple-abstraction-suite FPATH -- include-dir -language fortran
+simple-abstraction-suite FPATH -- include-dir -language f77
+simple-abstraction-suite FPATH -- include-dir -language fortran77
+simple-abstraction-suite FPATH -- include-dir -language f90
+simple-abstraction-suite FPATH -- include-dir -language fortran90
+simple-abstraction-suite LDPATH -- include-dir -language ld
+simple-abstraction-suite LDPATH -- include-dir -language link
+simple-abstraction-suite LDPATH -- include-dir -language linker
+simple-abstraction-suite ARPATH -- include-dir -language ar
+simple-abstraction-suite ARPATH -- include-dir -language a
+simple-abstraction-suite ARPATH -- include-dir -language archive
+simple-abstraction-suite ARPATH -- include-dir -language archiver
+simple-abstraction-suite ASPATH -- include-dir -language as
+simple-abstraction-suite ASPATH -- include-dir -language s
+simple-abstraction-suite ASPATH -- include-dir -language assembly
+simple-abstraction-suite ASPATH -- include-dir -language assembler
+simple-abstraction-suite PYTHONPATH -- include-dir -language py
+simple-abstraction-suite PYTHONPATH -- include-dir -language python
+simple-abstraction-suite PERLLIB -- include-dir -language pl
+simple-abstraction-suite PERLLIB -- include-dir -language perl
+simple-abstraction-suite PERL5LIB -- include-dir -language pl5
+simple-abstraction-suite PERL5LIB -- include-dir -language perl5
+
+simple-abstraction-suite PYTHONPATH -- python-lib-dir
+simple-abstraction-suite PERLLIB -- perl-lib-dir
+simple-abstraction-suite PERL5LIB -- perl5-lib-dir
+
+simple-abstraction-suite C_INCLUDE_PATH CPLUS_INCLUDE_PATH CPATH -- include-dir -language c,c++
+
+
+simple-abstraction-suite LIBRARY_PATH -- lib-dir '-force "library_path no-ld_run_path no-ld_library_path"'
+simple-abstraction-suite LD_RUN_PATH -- lib-dir '-force "ld_run_path,no-library_path,no-ld_library_path"'
+simple-abstraction-suite LD_LIBRARY_PATH -- lib-dir '-force ld_library_path,no-library_path,no-ld_run_path'
+simple-abstraction-suite LIBRARY_PATH -- lib-dir '-defaults "library_path no-ld_run_path no-ld_library_path"'
+simple-abstraction-suite LD_RUN_PATH -- lib-dir '-defaults "ld_run_path,no-library_path,no-ld_library_path"'
+simple-abstraction-suite LD_LIBRARY_PATH -- lib-dir '-defaults ld_library_path,no-library_path,no-ld_run_path'
+
+
