@@ -111,9 +111,18 @@ stack-proc ::module { args } {
 stack-proc ::unsetenv { args } {
 	set retval [eval call-upper $args]
 
-	foreach var $args {
-		if { [info exists ::env($var)] } {
-			unset ::env($var)
+	if { [llength $args] > 0 } {
+		set var [lindex $args 0]
+		if { [module-info mode load] || [module-info mode show] } {
+			if { [info exists ::env($var)] } {
+				unset ::env($var)
+			}
+		} elseif { [module-info mode remove] } {
+			if { [llength $args] > 1 } {
+				set val [join [lrange $args 1 end]]
+				#set ::env($var) $val
+				array set ::env [list $var $val]
+			}
 		}
 	}
 
