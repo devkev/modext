@@ -1,0 +1,45 @@
+#!/bin/bash
+# FIXME: use #!/shbang bash
+# FIXME: use #!/shwrapper bash
+
+# Copyright (C) 2012 Kevin Pulo and the Australian National University.
+#
+# This file is part of modext.
+# 
+# modext is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# modext is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with modext.  If not, see <http://www.gnu.org/licenses/>.
+
+
+. shwrapnel || { echo "shwrapnel: Error: cannot source shwrapnel" 1>&2 ; exit 1; }
+
+# FIXME: handle any options that are given (eg. -t, -v, -s, ...)
+if [ "$2" = "list" ]; then
+	shwrapnel run
+	if [ "${INACTIVEMODULES:+nonempty}" = nonempty ]; then
+		echo 1>&2
+		echo "Currently Inactive Modulefiles:" 1>&2
+		old_IFS="$IFS"
+		IFS=":"
+		declare -a inactivemodules=($INACTIVEMODULES)
+		IFS="$old_IFS"
+		PS3=
+		select dummy in "${inactivemodules[@]}"; do
+			:
+		done < /dev/null 2>&1 | awk 'NF>0{print"  "$0}' 1>&2
+	fi
+
+else
+	shwrapnel launch
+
+fi
+
