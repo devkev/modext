@@ -48,6 +48,9 @@ proc ::force-prereq { module } {
 		# check if some other version is loaded, remove if necessary before loading
 		# FIXME: infinite loop bug
 		regsub "/\[^/\]*$" $module "" parent_module
+		# FIXME: BUG: if no module is loaded, this will loop forever.
+		# need to break out if $parent_module is empty or if the regsub
+		# doesn't change it.
 		while { "$parent_module" != "$module" } {
 			if { [is-loaded $parent_module] } {
 				module unload $parent_module
