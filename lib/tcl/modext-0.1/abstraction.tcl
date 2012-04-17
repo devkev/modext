@@ -512,6 +512,96 @@ proc ::perl5-lib-dir { args } {
 }
 
 
+proc internal::init_activate_modules { } {
+	# Might not support options properly.  But then they are a hack anyway.
+	set ::modext::internal::activatemodules [list]
+}
+
+::modext::internal::init_activate_modules
+
+proc internal::save_activatemodule { mod } {
+	lappend ::modext::internal::activatemodules $mod
+}
+
+proc process_activatemodules { } {
+	foreach mod $::modext::internal::activatemodules {
+		module load $mod
+	}
+}
+
+
+# modules-dir modulefiles modulefiles2 modulefiles3:modulefiles4:... ...
+regularised-OptProc ::modules-dir { defaults force basedir } {
+	{ args }
+} {
+	::modext::ensure-at-least-1-arg
+
+	foreach dirlist [reverse $args] {
+		foreach dir [reverse [split $dirlist ":"]] {
+
+			set fulldir [::modext::basedir-relative $dir]
+			#puts stderr "fulldir = $fulldir"
+
+			if { [module-info mode remove] } {
+				foreach modfile [split [::modext::env _LMFILES_] ":"] {
+					#puts stderr "checking $fulldir against $modfile"
+					if { [string equal -length [string length $fulldir] $fulldir/ $modfile] } {
+						# ding!
+						#puts stderr "ding! $fulldir $modfile"
+						# mark this one as inactive
+						set modname [string range $modfile [string length $fulldir/] end]
+						#puts stderr "modname $modname"
+						# cannot use prepend-path because we are unloading, BAH
+						#prepend-path INACTIVEMODULES $modname
+						#puts stderr "unsetenv INACTIVEMODULES $modname[env -prefix : INACTIVEMODULES]"
+						unsetenv INACTIVEMODULES $modname[::modext::env -prefix : INACTIVEMODULES]
+						# remember we are already unloading, so must "load" the module to unload it.
+						module load $modname
+
+						# junk like this isn't going to fly; modules has too many checks in "module list"
+						#unsetenv LOADEDMODULES [env -suffix : LOADEDMODULES]($modname)
+						#unsetenv _LMFILES_ [env -suffix : _LMFILES_]$fulldir/$modname
+					}
+				}
+			}
+
+			#prepend-path MODULEPATH $fulldir
+			::modext::internal::add_dirs_to_var MODULEPATH $fulldir
+
+			if { [module-info mode load] } {
+				foreach modname [split [::modext::env INACTIVEMODULES] ":"] {
+					set modfile $fulldir/$modname
+					# if exists then remove from INACTIVEMODULES and load it
+					# perhaps better to try to check the output of module avail $modname ?
+					#set testing [module avail -t $modname]
+					#puts stderr "testing: $testing"
+					# no, that doesn't work.
+					if { [file readable $modfile] } {
+						#module load $modname
+						::modext::internal::save_activatemodule $modname
+						remove-path INACTIVEMODULES $modname
+					}
+				}
+			}
+
+		}
+	}
+}
+
+proc ::module-dir { args } {
+	uplevel 1 "modules-dir $args"
+}
+
+proc ::modulefile-dir { args } {
+	uplevel 1 "modules-dir $args"
+}
+
+proc ::modulefiles-dir { args } {
+	uplevel 1 "modules-dir $args"
+}
+
+
+
 
 # preload-lib [ -defaults <default options> ] lib
 regularised-OptProc ::preload-lib { defaults force basedir } {

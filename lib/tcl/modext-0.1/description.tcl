@@ -160,6 +160,9 @@ namespace eval modext {
 
 			::modext::only-load ::modext::check-group-access
 
+			# activate any modules that need to be
+			::modext::process_activatemodules
+
 			# Remove any options that need to be removed.
 			::modext::show-debug "options used: [array names ::options_used]"
 			::modext::show-debug "options to remove: [array names ::options_to_remove]"
