@@ -87,6 +87,7 @@ stack-proc ::is-loaded { args } {
 
 
 
+single-proc ::no-op args {}
 
 # Doing "module list" inside a module causes $LOADEDMODULES (but not $_LMFILES_)
 # to be truncated to just the first entry.  Yeah, tell me about it.
@@ -96,6 +97,17 @@ stack-proc ::module { args } {
 	}
 
 	set retval [eval call-upper $args]
+
+	# There is some heinous bug somewhere (tcl? modules? both/interaction?)
+	# which means that if I don't merely resolve $::env(LOADEDMODULES), then
+	# it gets messed up (probably reset to being empty, hence the "module list"
+	# workaround that has been here a while).  This is a problem when doing
+	# "module load" from inside a module, and then later trying to test is-loaded
+	# on that module (ie. it always reports that it's not loaded).
+	# Also doesn't seem to matter whether it gets done before or after the
+	# call-upper.  Go figure.
+	# So we just resolve it and get on with our lives.
+	no-op $::env(LOADEDMODULES)
 
 	if { [info exists realloadedmodules] } {
 		set ::env(LOADEDMODULES) $realloadedmodules
