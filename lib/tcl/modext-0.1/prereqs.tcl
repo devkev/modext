@@ -35,7 +35,12 @@ proc ::soft-prereq { module } {
 	if { [is-loaded $module] } {
 		# great
 	} else {
-		module load $module
+		regsub "/\[^/\]*$" $module "" parent_module
+		if { [is-loaded $parent_module] } {
+			# great
+		} else {
+			module load $module
+		}
 	}
 }
 
