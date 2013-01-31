@@ -674,6 +674,20 @@ regularised-OptProc ::avoid-flags { defaults force languages flavours } {
 
 
 
+# provides pkg1/ver /loc/of/modulefile/pkg1/ver pkg2 /loc/of/modulefile/pkg2/ver ...
+regularised-OptProc ::provides { defaults force } {
+	{ args }
+} {
+	::modext::ensure-at-least-1-arg
+
+	foreach { mod modfile } $args {
+		append-path PROVIDEDMODULES $mod
+		append-path _PMFILES_ $modfile
+	}
+}
+
+
+
 
 
 
